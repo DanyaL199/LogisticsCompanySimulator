@@ -1,0 +1,54 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "E:\\Unity project\\LogisticsCompanySimulator\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|e:\\unity project\\logisticscompanysimulator\\assets\\scripts\\fleet\\vehicledata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\fleet\\vehicledata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|e:\\unity project\\logisticscompanysimulator\\assets\\scripts\\roads\\roaddata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\roads\\roaddata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "RoadData.cs",
+              "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Roads\\RoadData.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\Roads\\RoadData.cs",
+              "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Roads\\RoadData.cs",
+              "RelativeToolTip": "Assets\\Scripts\\Roads\\RoadData.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-17T19:37:48.948Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "VehicleData.cs",
+              "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Fleet\\VehicleData.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\Fleet\\VehicleData.cs",
+              "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Fleet\\VehicleData.cs",
+              "RelativeToolTip": "Assets\\Scripts\\Fleet\\VehicleData.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAZAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-05-17T19:36:06.372Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
