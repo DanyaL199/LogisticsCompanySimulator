@@ -32,6 +32,7 @@ public class VehicleController : MonoBehaviour
     {
         FinanceManager.Instance?.RegisterVehicle(this);
 
+
         if (WageManager.Instance != null)
         {
             WageManager.Instance.OnStrikeStarted += OnStrikeStarted;
@@ -41,7 +42,14 @@ public class VehicleController : MonoBehaviour
         // Автоматичний запуск тестового маршруту
         if (testRoute != null)
             StartRoute(testRoute);
+
+        Invoke(nameof(RegisterSelf), 0.1f);
     }
+    private void RegisterSelf()
+    {
+        FindObjectOfType<FleetPanelController>(true)?.RegisterVehicle(this);
+    }
+
 
     private void OnDestroy()
     {
@@ -211,6 +219,35 @@ public class VehicleController : MonoBehaviour
             moveTween?.Kill();
             Debug.LogWarning($"{vehicleData.vehicleName} зламався у {currentCity.cityName}!");
         }
+    }
+
+    // Плановий ремонт (гравець натиснув кнопку вручну)
+    public bool PlannedRepair()
+    {
+        if (status == VehicleStatus.Broken)
+            return EmergencyRepair(); // вже зламаний — екстрений
+
+        if (condition >= 40f) return false; // ще не потрібно
+
+        float cost = vehicleData.purchaseCost * 0.08f; // 8% — планове ТО
+        if (!FinanceManager.Instance.CanAfford(cost))
+        {
+            Debug.Log("Недостатньо коштів для ТО!");
+            return false;
+        }
+
+        // Зупинити рух
+        moveTween?.Kill();
+        status = VehicleStatus.Idle;
+
+        FinanceManager.Instance.AddExpense(cost);
+        condition = 100f;
+
+        Debug.Log($"Планове ТО: {cost:F0} у.о. Стан: 100%");
+
+        // Продовжити маршрут
+        if (activeRoute != null) MoveToNext();
+        return true;
     }
 
     public bool EmergencyRepair()
