@@ -1532,6 +1532,7 @@ Transform:
   - {fileID: 651850674}
   - {fileID: 1514625527}
   - {fileID: 1078069295}
+  - {fileID: 780794106}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &651850673
@@ -1584,6 +1585,50 @@ MonoBehaviour:
   totalExpenses: 0
   vehicleAssetsValue: 0
   roadAssetsValue: 0
+--- !u!1 &780794105
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 780794106}
+  - component: {fileID: 780794107}
+  m_Layer: 0
+  m_Name: SaveManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &780794106
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 780794105}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 617009723}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &780794107
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 780794105}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa7ea15fcba7afd46b31a6869724eeda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SaveManager
 --- !u!1 &787562006
 GameObject:
   m_ObjectHideFlags: 0
@@ -12739,7 +12784,6 @@ GameObject:
   - component: {fileID: 1023220187}
   - component: {fileID: 1023220189}
   - component: {fileID: 1023220188}
-  - component: {fileID: 1023220190}
   m_Layer: 5
   m_Name: Fleet_Panel
   m_TagString: Untagged
@@ -12807,22 +12851,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1023220186}
   m_CullTransparentMesh: 1
---- !u!114 &1023220190
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1023220186}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3fd239abce514eb46a6f317f52159b05, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FleetPanelController
-  fleetPanel: {fileID: 1023220186}
-  vehicleListParent: {fileID: 433084077}
-  vehicleRowPrefab: {fileID: 7108264782272354899, guid: e942d8039b2296d44951904b6e94bd4a, type: 3}
-  btnToggleFleet: {fileID: 96688083}
 --- !u!1 &1059881297
 GameObject:
   m_ObjectHideFlags: 0
@@ -13086,9 +13114,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VehicleController
   vehicleData: {fileID: 11400000, guid: 54fd91053b3bb4644a38ae521193330f, type: 2}
+  garageCities: []
   status: 0
   currentCity: {fileID: 0}
   condition: 100
+  currentLoad: 0
+  loadDestination: {fileID: 0}
   activeRoute: {fileID: 258586554}
   testRoute: {fileID: 258586554}
   visualSpeed: 3
@@ -13608,6 +13639,7 @@ GameObject:
   - component: {fileID: 1478134987}
   - component: {fileID: 1478134986}
   - component: {fileID: 1478134985}
+  - component: {fileID: 1478134989}
   m_Layer: 5
   m_Name: UI_Canvas
   m_TagString: Untagged
@@ -13700,6 +13732,23 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &1478134989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478134984}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3fd239abce514eb46a6f317f52159b05, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FleetPanelController
+  fleetPanel: {fileID: 1023220186}
+  vehicleListParent: {fileID: 433084077}
+  vehicleRowPrefab: {fileID: 7108264782272354899, guid: e942d8039b2296d44951904b6e94bd4a, type: 3}
+  btnToggleFleet: {fileID: 96688083}
+  btnCloseFleet: {fileID: 1723137277}
 --- !u!1 &1514625526
 GameObject:
   m_ObjectHideFlags: 0
@@ -14093,7 +14142,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1723137278}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1023220186}
+        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
+        m_MethodName: set_isStatic
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1723137278
 MonoBehaviour:
   m_ObjectHideFlags: 0
