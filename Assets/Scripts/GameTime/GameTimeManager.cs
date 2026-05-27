@@ -80,19 +80,15 @@ public class GameTimeManager : MonoBehaviour
     public int startMonth = 1;
     public int startDay = 1;
 
-    [Header("Швидкість (0=пауза, 1=1x, 2=2x, 3=4x)")]
-    [Range(0, 3)]
+    [Header("Швидкість (0=пауза, 1=1x, 2=2x, 4=4x)")]
+    [Range(0, 4)]
     public int timeSpeed = 1;
 
     [Header("Поточна дата (тільки читання)")]
     [SerializeField] private GameDate currentDate;
 
-    // 1 ігровий день = 10 реальних секунд при 1x
-    // тому 1 година = 10/24 сек
-    private float secondsPerHour_1x = 10f / 24f;
-    private float secondsPerHour_2x = 5f / 24f;
-    private float secondsPerHour_4x = 2.5f / 24f;
-
+    // 1 година = 10/24 реальної секунди при звичайній швидкості (1x)
+    private float baseSecondsPerHour = 10f / 24f;
     private float timer = 0f;
 
     public event Action<GameDate> OnHourChanged;
@@ -119,16 +115,13 @@ public class GameTimeManager : MonoBehaviour
     {
         if (timeSpeed == 0) return;
 
-        float rate;
-        if (timeSpeed == 1) rate = secondsPerHour_1x;
-        else if (timeSpeed == 2) rate = secondsPerHour_2x;
-        else rate = secondsPerHour_4x;
+        // множимо реальний час на множник швидкості (1, 2 або 4)
+        timer += Time.deltaTime * timeSpeed;
 
-        timer += Time.deltaTime;
-
-        while (timer >= rate)
+        // Перевіряємо завжди з базовим часом
+        while (timer >= baseSecondsPerHour)
         {
-            timer -= rate;
+            timer -= baseSecondsPerHour;
             AdvanceHour();
         }
     }
@@ -162,14 +155,36 @@ public class GameTimeManager : MonoBehaviour
                 OnYearChanged(currentDate);
         }
     }
+    public void SetDate(int year, int month, int day, int hour)
+    {
+        currentDate = new GameDate(year, month, day, hour);
+    }
 
     public void SetSpeed(int s)
     {
-        if (s < 0) s = 0;
-        if (s > 3) s = 3;
-        timeSpeed = s;
-        if (timeSpeed == 0)
-            timer = 0f;
+        switch (s)
+        {
+            case 0:
+                timeSpeed = 0;
+                Time.timeScale = 0f; // Зупиняє DOTween та фізику (Пауза)
+                break;
+            case 1:
+                timeSpeed = 1;
+                Time.timeScale = 1f; // Звичайна швидкість
+                break;
+            case 2:
+                timeSpeed = 2;
+                Time.timeScale = 2f; // Пришвидшує DOTween в 2 рази
+                break;
+            case 3:
+                timeSpeed = 4;
+                Time.timeScale = 4f; // Пришвидшує DOTween в 4 рази
+                break;
+            default:
+                timeSpeed = 1;
+                Time.timeScale = 1f;
+                break;
+        }
     }
 
     public GameDate GetFutureDate(int hoursFromNow)

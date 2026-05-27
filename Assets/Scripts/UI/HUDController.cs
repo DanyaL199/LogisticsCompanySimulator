@@ -78,7 +78,7 @@ public class HUDController : MonoBehaviour
         SetButtonColor(btnPause, current == 0);
         SetButtonColor(btn1x, current == 1);
         SetButtonColor(btn2x, current == 2);
-        SetButtonColor(btn4x, current == 3);
+        SetButtonColor(btn4x, current == 4);
     }
 
     private void SetButtonColor(Button btn, bool isActive)

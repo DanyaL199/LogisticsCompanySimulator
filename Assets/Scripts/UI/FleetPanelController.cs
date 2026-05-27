@@ -10,6 +10,7 @@ public class FleetPanelController : MonoBehaviour
     public Transform vehicleListParent;
     public GameObject vehicleRowPrefab;
     public Button btnToggleFleet;
+    public Button btnCloseFleet;
 
     private List<VehicleController> trackedVehicles = new List<VehicleController>();
     private List<GameObject> rows = new List<GameObject>();
@@ -21,7 +22,9 @@ public class FleetPanelController : MonoBehaviour
     private void Start()
     {
         btnToggleFleet?.onClick.AddListener(TogglePanel);
-        fleetPanel?.SetActive(false);
+        btnCloseFleet?.onClick.AddListener(TogglePanel);
+        fleetPanel?.SetActive(false);// Приховуємо панель на початку 
+
     }
 
     public void RegisterVehicle(VehicleController v)
@@ -40,14 +43,10 @@ public class FleetPanelController : MonoBehaviour
                                ?.GetComponent<Button>();
             if (repairBtn != null)
             {
+                
                 var captured = v;
-                repairBtn.onClick.AddListener(() =>
-                {
-                    if (captured.status == VehicleStatus.Broken)
-                        captured.EmergencyRepair();
-                    else
-                        captured.PlannedRepair();
-                });
+                repairBtn.onClick.AddListener(() => captured.RequestRepair());
+                
             }
         }
     }
@@ -135,6 +134,8 @@ public class FleetPanelController : MonoBehaviour
         {
             case VehicleStatus.Idle: return "У гаражі";
             case VehicleStatus.Moving: return "У дорозі";
+            case VehicleStatus.ReturningToGarage: return "Повертається до гаража";
+            case VehicleStatus.Repairing: return "На ремонті";
             case VehicleStatus.Broken: return "Зламаний!";
             case VehicleStatus.Strike: return "Страйк!";
             default: return "—";

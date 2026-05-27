@@ -57,4 +57,23 @@ public class RouteDefinition : MonoBehaviour
         foreach (var lr in highlightLines)
             if (lr != null) lr.enabled = false;
     }
+    //  коли гравець додає нове місто в маршрут
+    public void UpdateRouteName()
+    {
+        if (stops == null || stops.Count == 0) return;
+
+        // Створюємо порожній список для назв міст
+        List<string> cityNames = new List<string>();
+
+        // Перебираємо всі зупинки в маршруті і дістаємо назви міст
+        foreach (var stop in stops)
+        {
+            if (stop.city != null)
+            {
+                cityNames.Add(stop.city.cityName);
+            }
+        }
+
+        routeName = string.Join(" - ", cityNames);
+    }
 }

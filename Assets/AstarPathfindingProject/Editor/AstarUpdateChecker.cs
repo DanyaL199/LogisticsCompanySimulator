@@ -220,12 +220,13 @@ namespace Pathfinding {
 						   "&branch="+AstarPath.Branch;
 
 #if UNITY_2018_1_OR_NEWER
-			updateCheckDownload = UnityWebRequest.Get(query);
-			updateCheckDownload.SendWebRequest();
+            //фігня яка просить оновити юніті, але не працює в вебплеєрі, тому не юзаю її там і бісить бо вона спамить помилки в консолі
+            //updateCheckDownload = UnityWebRequest.Get(query);
+            //updateCheckDownload.SendWebRequest(); 
 #else
 			updateCheckDownload = new WWW(query);
 #endif
-			lastUpdateCheck = System.DateTime.UtcNow;
+            lastUpdateCheck = System.DateTime.UtcNow;
 		}
 
 		/// <summary>Handles the data from the update page</summary>
