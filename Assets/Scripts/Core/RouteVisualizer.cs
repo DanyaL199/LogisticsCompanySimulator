@@ -1,13 +1,9 @@
 using UnityEngine;
 
-
-// Будує лінії підсвітки при старті
 [RequireComponent(typeof(RouteDefinition))]
 public class RouteVisualizer : MonoBehaviour
 {
-    [Header("Префаб лінії (той самий RoadLinePrefab)")]
     public GameObject linePrefab;
-
     private RouteDefinition route;
 
     private void Awake()
@@ -18,13 +14,12 @@ public class RouteVisualizer : MonoBehaviour
     private void Start()
     {
         BuildHighlightLines();
-        route.HideHighlight(); // спочатку приховані
+        route.HideHighlight();
     }
 
     private void BuildHighlightLines()
     {
         if (!route.IsValid() || linePrefab == null) return;
-
         route.highlightLines.Clear();
 
         for (int i = 0; i < route.stops.Count; i++)
@@ -40,16 +35,11 @@ public class RouteVisualizer : MonoBehaviour
             lr.positionCount = 2;
             lr.SetPosition(0, a.transform.position);
             lr.SetPosition(1, b.transform.position);
-
-            // Ширша за дорогу щоб виглядала як обводка
             lr.startWidth = lr.endWidth = 0.18f;
-
-            // Під дорогою — Roads order=2, ця лінія order=1
             lr.sortingLayerName = "Roads";
             lr.sortingOrder = 1;
-
             lr.startColor = lr.endColor = route.routeColor;
-            lr.enabled = false; // приховано до запуску маршруту
+            lr.enabled = false;
 
             route.highlightLines.Add(lr);
         }

@@ -16,6 +16,7 @@ public class VehicleController : MonoBehaviour
 {
     [Header("Дані транспортного засобу")]
     public VehicleData vehicleData;
+    public string customName;
 
     [Header("Гаражі (міста приписки)")]
     public List<CityNode> garageCities = new List<CityNode>();
@@ -24,14 +25,13 @@ public class VehicleController : MonoBehaviour
     public VehicleStatus status = VehicleStatus.Idle;
     public CityNode currentCity;
     public float condition = 100f;
-    public float currentCondition = 100f;
-    public bool useIndividualRepairThreshold = false;
-    public float individualRepairThreshold = 20f;
 
-    [Header("Статуси ремонту")]
-    public bool isHeadingToGarage = false;
-    public bool isInGarage = false;
-    public CityNode targetGarageCity; // Місто, куди ми їдемо на ремонт
+    [Header("Обслуговування")]
+    public bool useIndividualRepairThreshold = false;
+    public float individualRepairThreshold = 30f;
+    public float totalRepairCost = 0f;
+    public float totalFuelCost = 0f;
+    public float totalIncome = 0f;
 
     [Header("Завантаження")]
     public int currentLoad = 0;
@@ -48,12 +48,10 @@ public class VehicleController : MonoBehaviour
 
     private const float BASE_RATE = 10f;
     private const float KM_PER_UNIT = 50f;
-    private const float FUEL_PRICE = 1f;
+    public const float FUEL_PRICE = 1f;
 
     private Tween moveTween;
     private RouteDefinition pendingRoute;
-
-    // ─── Ініціалізація ───────────────────────────────────────
 
     private void Start()
     {
@@ -88,8 +86,6 @@ public class VehicleController : MonoBehaviour
         }
     }
 
-    // ─── Маршрут ─────────────────────────────────────────────
-
     public bool StartRoute(RouteDefinition route)
     {
         if (status != VehicleStatus.Idle) return false;
@@ -118,8 +114,6 @@ public class VehicleController : MonoBehaviour
         status = VehicleStatus.Idle;
     }
 
-    // ─── Завантаження ─────────────────────────────────────────
-
     private void LoadCargo()
     {
         currentLoad = 0;
@@ -138,16 +132,12 @@ public class VehicleController : MonoBehaviour
             int available = currentCity.GetDemandTo(stop.city);
             if (available <= 0) continue;
 
-            currentLoad = currentCity.TakeUnits(stop.city,
-                                  (int)vehicleData.maxCapacity);
+            currentLoad = currentCity.TakeUnits(stop.city, (int)vehicleData.maxCapacity);
             loadDestination = stop.city;
 
-            Debug.Log($"{vehicleData.vehicleName}: +{currentLoad} од. → {stop.city.cityName}");
             return;
         }
     }
-
-    // ─── Основний рух ────────────────────────────────────────
 
     private void MoveToNext()
     {
@@ -163,7 +153,6 @@ public class VehicleController : MonoBehaviour
         RoadConnection road = RoadNetwork.Instance?.GetRoad(currentCity, next);
         if (road == null)
         {
-            Debug.LogWarning($"Немає дороги: {currentCity.cityName}→{next.cityName}");
             StopRoute();
             return;
         }
@@ -191,66 +180,65 @@ public class VehicleController : MonoBehaviour
         // Дохід якщо привезли вантаж
         if (currentLoad > 0 && loadDestination == city)
         {
-            float income = (distKm / KM_PER_UNIT)
-                         * currentLoad
-                         * (prev != null ? prev.activityLevel / 3f : 1f)
-                         * BASE_RATE;
+            float income = (distKm / KM_PER_UNIT) * currentLoad * (prev != null ? prev.activityLevel / 3f : 1f) * BASE_RATE;
             FinanceManager.Instance?.AddIncome(income);
-            Debug.Log($"{vehicleData.vehicleName} → {city.cityName} | +{income:F0} у.о.");
+            totalIncome += income;
+            if (activeRoute != null) activeRoute.incomeStats += income;
             currentLoad = 0;
             loadDestination = null;
         }
         else if (currentLoad == 0 && city.GeneratesIncomeFor(vehicleData.vehicleType))
         {
-            // Старий варіант через DemandManager якщо demands не налаштовані
             int consumed = DemandManager.Instance != null
                 ? DemandManager.Instance.ConsumeCapacity(city, (int)vehicleData.maxCapacity)
                 : (int)vehicleData.maxCapacity;
 
             if (consumed > 0)
             {
-                float income = (distKm / KM_PER_UNIT)
-                             * consumed
-                             * (prev != null ? prev.activityLevel / 3f : 1f)
-                             * BASE_RATE;
+                float income = (distKm / KM_PER_UNIT) * consumed * (prev != null ? prev.activityLevel / 3f : 1f) * BASE_RATE;
                 FinanceManager.Instance?.AddIncome(income);
-                Debug.Log($"{vehicleData.vehicleName} → {city.cityName} | +{income:F0} у.о.");
+                totalIncome += income;
+                if (activeRoute != null) activeRoute.incomeStats += income;
             }
         }
 
-        float fuel = (distKm / 100f) * vehicleData.fuelPer100km * FUEL_PRICE;
-        FinanceManager.Instance?.AddExpense(fuel);
+        float fuelC = (distKm / 100f) * vehicleData.fuelPer100km * FUEL_PRICE;
+        FinanceManager.Instance?.AddExpense(fuelC);
+        totalFuelCost += fuelC;
         ApplyWear(road, distKm);
 
-        if (status != VehicleStatus.Broken && status != VehicleStatus.Strike)
+        if (status != VehicleStatus.Broken && status != VehicleStatus.Strike && status != VehicleStatus.ReturningToGarage && status != VehicleStatus.Repairing)
         {
             status = VehicleStatus.Idle;
             if (currentLoad == 0) LoadCargo();
-            MoveToNext();
+
+            float threshold = useIndividualRepairThreshold ? individualRepairThreshold : (MechanicManager.Instance?.globalRepairThreshold ?? 30f);
+            if (condition <= threshold)
+            {
+                DriveToGarageForRepair();
+            }
+            else
+            {
+                MoveToNext();
+            }
         }
     }
 
     private void ApplyWear(RoadConnection road, float distKm)
     {
-        float wear = (distKm * road.roadData.wearMultiplier * 1f)
-                   / vehicleData.maintenanceCost;
+        float wear = (distKm * road.roadData.wearMultiplier * 1f) / vehicleData.maintenanceCost;
         condition = Mathf.Max(0f, condition - wear);
 
         if (condition <= 0f)
         {
             status = VehicleStatus.Broken;
             moveTween?.Kill();
-            Debug.LogWarning(
-                $"{vehicleData.vehicleName} зламався у {currentCity.cityName}!");
         }
     }
 
-    // ─── Ремонт ──────────────────────────────────────────────
-
     public void RequestRepair()
     {
-        if (status == VehicleStatus.Repairing ||
-            status == VehicleStatus.ReturningToGarage) return;
+        if (status == VehicleStatus.Repairing || status == VehicleStatus.ReturningToGarage) return;
 
         if (status == VehicleStatus.Broken)
         {
@@ -258,14 +246,10 @@ public class VehicleController : MonoBehaviour
             float repairCost = vehicleData.purchaseCost * 0.15f;
             float totalCost = towCost + repairCost;
 
-            if (!FinanceManager.Instance.CanAfford(totalCost))
-            {
-                Debug.Log("Недостатньо коштів для евакуації і ремонту!");
-                return;
-            }
+            if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(totalCost)) return;
 
-            FinanceManager.Instance.AddExpense(totalCost);
-            Debug.Log($"Евакуація + ремонт: {totalCost:F0} у.о.");
+            FinanceManager.Instance?.AddExpense(totalCost);
+            totalRepairCost += totalCost;
 
             CityNode garage = GetNearestGarage();
             if (garage != null)
@@ -276,47 +260,62 @@ public class VehicleController : MonoBehaviour
 
             StartRepairing();
         }
-        else if (condition < 30f)
+        else
         {
-            pendingRoute = activeRoute;
-            StopRoute();
-            DriveToGarageForRepair();
+            float threshold = useIndividualRepairThreshold ? individualRepairThreshold : (MechanicManager.Instance?.globalRepairThreshold ?? 30f);
+            if (condition < threshold || condition < 60f) // Можна ремонтувати якщо стан менше певного % вручну
+            {
+                pendingRoute = activeRoute;
+                StopRoute();
+                DriveToGarageForRepair();
+            }
         }
     }
 
     private CityNode GetNearestGarage()
     {
-        if (garageCities == null || garageCities.Count == 0) return null;
-
+        var allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
         CityNode nearest = null;
         float minDist = float.MaxValue;
 
-        foreach (var g in garageCities)
+        foreach (var c in allCities)
         {
-            if (g == null) continue;
-            float dist = Vector3.Distance(transform.position, g.transform.position);
-            if (dist < minDist) { minDist = dist; nearest = g; }
+            if (c != null && c.hasGarage)
+            {
+                float dist = Vector3.Distance(transform.position, c.transform.position);
+                if (dist < minDist) { minDist = dist; nearest = c; }
+            }
+        }
+
+        if (nearest == null && garageCities != null && garageCities.Count > 0)
+        {
+            foreach (var g in garageCities)
+            {
+                if (g == null) continue;
+                float dist = Vector3.Distance(transform.position, g.transform.position);
+                if (dist < minDist) { minDist = dist; nearest = g; }
+            }
         }
         return nearest;
     }
 
     private void DriveToGarageForRepair()
     {
+        if (currentCity != null && currentCity.hasGarage) { StartRepairing(); return; }
+
         CityNode garage = GetNearestGarage();
         if (garage == null) { StartRepairing(); return; }
         if (currentCity == garage) { StartRepairing(); return; }
 
         var path = RoadNetwork.Instance?.FindPath(currentCity, garage);
-        if (path == null || path.Count == 0)
+        if (path == null || path.Count <= 1)
         {
-            Debug.LogWarning("Немає маршруту до гаража! Ремонт на місці.");
             StartRepairing();
             return;
         }
 
         status = VehicleStatus.ReturningToGarage;
-        Debug.Log($"{vehicleData.vehicleName} їде до гаража: {garage.cityName}");
-        MoveAlongPath(path, 0, garage);
+        MoveAlongPath(path, 1, garage);
     }
 
     private void MoveAlongPath(List<CityNode> path, int index, CityNode destination)
@@ -345,7 +344,14 @@ public class VehicleController : MonoBehaviour
             .OnComplete(() =>
             {
                 currentCity = next;
-                MoveAlongPath(path, index + 1, destination);
+                if (currentCity == destination || currentCity.hasGarage)
+                {
+                    StartRepairing();
+                }
+                else
+                {
+                    MoveAlongPath(path, index + 1, destination);
+                }
             });
     }
 
@@ -353,38 +359,26 @@ public class VehicleController : MonoBehaviour
     {
         status = VehicleStatus.Repairing;
 
-        // Планове ТО — 8% від ціни (евакуація вже оплачена окремо)
         if (condition > 0f)
         {
             float cost = vehicleData.purchaseCost * 0.08f;
-            if (!FinanceManager.Instance.CanAfford(cost))
+            if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(cost))
             {
-                Debug.Log("Недостатньо коштів для ТО!");
                 status = VehicleStatus.Idle;
                 return;
             }
-            FinanceManager.Instance.AddExpense(cost);
-            Debug.Log($"Планове ТО: {cost:F0} у.о.");
+            FinanceManager.Instance?.AddExpense(cost);
+            totalRepairCost += cost;
         }
 
-        float repairTime = GetRepairTime();
-        Debug.Log($"{vehicleData.vehicleName} на ремонті ({repairTime:F0} сек)...");
+        float repairTime = currentCity != null && currentCity.hasGarage ? Mathf.Max(1f, 5f - (currentCity.mechanics * 0.5f)) : 5f;
         DOVirtual.DelayedCall(repairTime, FinishRepair);
-    }
-
-    private float GetRepairTime()
-    {
-        if (condition > 50f) return 3f;
-        if (condition > 30f) return 5f;
-        if (condition > 10f) return 8f;
-        return 12f;
     }
 
     private void FinishRepair()
     {
         condition = 100f;
         status = VehicleStatus.Idle;
-        Debug.Log($"{vehicleData.vehicleName} відремонтовано!");
 
         if (pendingRoute != null)
         {
@@ -393,8 +387,6 @@ public class VehicleController : MonoBehaviour
             StartRoute(r);
         }
     }
-
-    // ─── Допоміжні ───────────────────────────────────────────
 
     private void RotateTowards(Vector3 target)
     {
@@ -409,13 +401,10 @@ public class VehicleController : MonoBehaviour
         transform.localScale = scale;
     }
 
-    // ─── Страйк ──────────────────────────────────────────────
-
     private void OnStrikeStarted()
     {
         moveTween?.Kill();
         status = VehicleStatus.Strike;
-        Debug.LogWarning($"{vehicleData.vehicleName} — страйк!");
     }
 
     private void OnStrikeEnded()
@@ -423,52 +412,5 @@ public class VehicleController : MonoBehaviour
         if (status != VehicleStatus.Strike) return;
         status = VehicleStatus.Idle;
         if (activeRoute != null) MoveToNext();
-    }
-    //  -─ Ремонт при зношуванні ─────────────────────────────────
-
-    public void DecreaseCondition(float amount)
-    {
-        if (isInGarage) return; // В гаражі не ламаємося
-
-        currentCondition -= amount * Time.deltaTime;
-
-        // Перевіряємо, чи не час на ремонт
-        if (!isHeadingToGarage && MechanicManager.Instance.NeedsRepair(this))
-        {
-            GoToNearestGarage();
-        }
-    }
-
-    private void GoToNearestGarage()
-    {
-        // Шукаємо всі міста на карті
-        CityNode[] allCities = FindObjectsOfType<CityNode>();
-        CityNode nearestGarage = null;
-        float minDistance = Mathf.Infinity;
-
-        foreach (CityNode city in allCities)
-        {
-            if (city.hasGarage)
-            {
-                float dist = Vector2.Distance(transform.position, city.transform.position);
-                if (dist < minDistance)
-                {
-                    minDistance = dist;
-                    nearestGarage = city;
-                }
-            }
-        }
-
-        if (nearestGarage != null)
-        {
-            Debug.Log($"{gameObject.name} їде на ремонт у місто {nearestGarage.cityName}");
-            isHeadingToGarage = true;
-            targetGarageCity = nearestGarage;
-
-        }
-        else
-        {
-            Debug.LogWarning("Машині потрібен ремонт, але на карті немає жодного гаража!");
-        }
     }
 }

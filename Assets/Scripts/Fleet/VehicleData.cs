@@ -11,9 +11,9 @@ public class VehicleData : ScriptableObject
     public VehicleType vehicleType;
 
     [Header("Характеристики")]
-    public int maxCapacity;      // одиниці вантажу або кількість пасажирів
+    public int maxCapacity;        // одиниці вантажу або кількість пасажирів
     public float maxSpeedKmh;      // обмежується типом дороги
-
+    public Sprite icon;            // іконка для UI
     [Header("Економіка")]
     public float purchaseCost;     // вартість придбання
     public float fuelPer100km;     // витрата пального

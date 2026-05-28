@@ -13,12 +13,14 @@ public class RouteDefinition : MonoBehaviour
     public string routeName;
 
     [Header("Колір маршруту (обирає гравець)")]
-    public Color routeColor = new Color(1f, 0.6f, 0f); // оранжевий за замовч.
+    public Color routeColor = new Color(1f, 0.6f, 0f); // оранжевий за замовчуванням
 
     [Header("Зупинки по порядку")]
     public List<RouteStop> stops = new List<RouteStop>();
 
-    // Лінії підсвітки (створюються автоматично)
+    [Header("Статистика")]
+    public float incomeStats = 0f; // Додано для збереження прибутку маршруту
+
     [HideInInspector]
     public List<LineRenderer> highlightLines = new List<LineRenderer>();
 
@@ -34,7 +36,6 @@ public class RouteDefinition : MonoBehaviour
         return stops[0].city;
     }
 
-    // Показати підсвітку маршруту
     public void ShowHighlight(bool hasVehicle)
     {
         Color color = hasVehicle
@@ -56,24 +57,5 @@ public class RouteDefinition : MonoBehaviour
     {
         foreach (var lr in highlightLines)
             if (lr != null) lr.enabled = false;
-    }
-    //  коли гравець додає нове місто в маршрут
-    public void UpdateRouteName()
-    {
-        if (stops == null || stops.Count == 0) return;
-
-        // Створюємо порожній список для назв міст
-        List<string> cityNames = new List<string>();
-
-        // Перебираємо всі зупинки в маршруті і дістаємо назви міст
-        foreach (var stop in stops)
-        {
-            if (stop.city != null)
-            {
-                cityNames.Add(stop.city.cityName);
-            }
-        }
-
-        routeName = string.Join(" - ", cityNames);
     }
 }

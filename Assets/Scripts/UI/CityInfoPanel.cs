@@ -1,47 +1,53 @@
 using UnityEngine;
-using TMPro; // Для тексту
-using UnityEngine.UI; // Для кнопок
+using TMPro;
+using UnityEngine.UI;
 
 public class CityInfoPanel : MonoBehaviour
 {
+    public static CityInfoPanel Instance { get; private set; }
+
+    public GameObject panelObj;
     public TextMeshProUGUI cityNameText;
-    public Button buildGarageBtn;
-    public Button createRouteBtn;
+    public TextMeshProUGUI demandsListText;
+    public Button btnBuildGarage;
+    public Button btnHireMechanic;
+    public Button btnCreateRoute;
 
     private CityNode selectedCity;
 
-    // Викликається з MapClickHandler.cs при кліку на місто
+    private void Awake() { Instance = this; panelObj.SetActive(false); }
+
     public void OpenPanel(CityNode city)
     {
         selectedCity = city;
         cityNameText.text = city.cityName;
-
-        // Якщо гараж вже є, робимо кнопку неактивною
-        buildGarageBtn.interactable = !city.hasGarage;
-
-        gameObject.SetActive(true);
+        panelObj.SetActive(true);
+        RefreshUI();
     }
 
-    public void ClosePanel()
-    {
-        gameObject.SetActive(false);
-    }
+    public void ClosePanel() { panelObj.SetActive(false); }
 
-    // Прив'яжи цю функцію до кнопки "Побудувати гараж" в Inspector (On Click)
-    public void OnBuildGarageClicked()
+    private void RefreshUI()
     {
-        if (selectedCity != null)
-        {
-            // Тут ти можеш додати перевірку грошей: if(FinanceManager.Instance.balance >= 5000)
-            selectedCity.BuildGarage();
-            buildGarageBtn.interactable = false; // Вимикаємо кнопку після покупки
-        }
-    }
+        btnBuildGarage.interactable = !selectedCity.hasGarage;
+        btnHireMechanic.interactable = selectedCity.hasGarage;
 
-    // Прив'яжи цю функцію до кнопки "Створити маршрут"
-    public void OnCreateRouteClicked()
-    {
-        Debug.Log($"Починаємо створення маршруту з міста {selectedCity.cityName}");
-        // Тут будемо викликати RouteBuilderPanel (UI створення маршрутів)
+        btnBuildGarage.onClick.RemoveAllListeners();
+        btnBuildGarage.onClick.AddListener(() => { selectedCity.BuildGarage(); RefreshUI(); });
+
+        btnHireMechanic.onClick.RemoveAllListeners();
+        btnHireMechanic.onClick.AddListener(() => { selectedCity.HireMechanic(); RefreshUI(); });
+
+        btnCreateRoute.onClick.RemoveAllListeners();
+        btnCreateRoute.onClick.AddListener(() => {
+            ClosePanel();
+            RouteBuilderPanel.Instance.OpenPanel();
+        });
+
+        // Виведення списку попиту
+        string ds = "";
+        foreach (var d in selectedCity.demands)
+            ds += $"В {d.destination.cityName}: {d.currentUnits}/{d.maxUnits}\n";
+        demandsListText.text = ds;
     }
 }
