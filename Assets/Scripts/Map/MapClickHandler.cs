@@ -263,6 +263,7 @@ public class MapClickHandler : MonoBehaviour
             float dist = Vector2.Distance(worldPos, city.transform.position);
             if (dist < minDist) { minDist = dist; nearest = city; }
         }
+
         return nearest;
     }
 

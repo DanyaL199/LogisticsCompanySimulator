@@ -5,21 +5,17 @@ public class FinanceManager : MonoBehaviour
 {
     public static FinanceManager Instance { get; private set; }
 
-    [Header("Початковий баланс")]
+    [Header("Баланс")]
     public float startingBalance = 120000f;
-
-    [Header("Поточний баланс")]
     public float balance;
 
     [Header("Статистика")]
     public float totalIncome;
     public float totalExpenses;
 
-    [Header("Активи компанії")]
+    [Header("Активи компнаї")]
     public float vehicleAssetsValue;
     public float roadAssetsValue;
-
-    public float CompanyValue => balance + vehicleAssetsValue + roadAssetsValue;
 
     private List<VehicleController> vehicles = new List<VehicleController>();
 
@@ -39,36 +35,42 @@ public class FinanceManager : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
-    {
-        if (GameTimeManager.Instance != null)
-        {
-            GameTimeManager.Instance.OnDayChanged -= OnNewDay;
-            GameTimeManager.Instance.OnMonthChanged -= OnNewMonth;
-        }
-    }
-
     public void OnNewDay(GameDate date)
     {
         foreach (var v in vehicles)
         {
             if (v == null) continue;
+            // Щоденне ТО (незначне)
             AddExpense(v.vehicleData.maintenanceCost / 30f);
         }
     }
 
     public void OnNewMonth(GameDate date)
     {
+        // Зарплати водіям
         if (WageManager.Instance != null)
         {
-            float wages = WageManager.Instance
-                .GetTotalMonthlyWageCost(vehicles.Count);
+            float wages = WageManager.Instance.GetTotalMonthlyWageCost(vehicles.Count);
             AddExpense(wages);
-            Debug.Log($"[{date.ToShortString()}] Зарплати: {wages:F0} у.о. | Баланс: {balance:F0} у.о.");
         }
 
-        if (balance < 0f)
-            Debug.LogWarning("УВАГА: Баланс від'ємний!");
+        // Обслуговування гаражів та механіків
+        float facilitiesCost = 0f;
+        var allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
+        foreach (var c in allCities)
+        {
+            if (c.hasGarage)
+            {
+                facilitiesCost += 500f; // Технічне утримання гаража
+                facilitiesCost += c.mechanics * 500f; // Зарплата механікам
+            }
+        }
+
+        if (facilitiesCost > 0)
+        {
+            AddExpense(facilitiesCost);
+            Debug.Log($"[{date.ToShortString()}] Витрати на інфраструктуру: {facilitiesCost:F0} у.о.");
+        }
     }
 
     public void AddIncome(float amount)
@@ -84,7 +86,6 @@ public class FinanceManager : MonoBehaviour
     }
 
     public bool CanAfford(float amount) => balance >= amount;
-    public float GetProfit() => totalIncome - totalExpenses;
 
     public void RegisterVehicle(VehicleController v)
     {

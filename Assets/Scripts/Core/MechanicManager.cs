@@ -2,20 +2,14 @@ using UnityEngine;
 
 public class MechanicManager : MonoBehaviour
 {
-    public static MechanicManager Instance;
+    public static MechanicManager Instance { get; private set; }
 
-    [Header("Налаштування автопарку")]
-    public float globalRepairThreshold = 30f; // Поріг ремонту за замовчуванням
-    public float globalWearSpeed = 0.5f; // Швидкість зносу транспорту під час руху
+    [Header("Глобальний поріг відправки на ТО (%)")]
+    public float globalRepairThreshold = 30f;
 
     private void Awake()
     {
-        Instance = this;
-    }
-
-    public bool NeedsRepair(VehicleController vehicle)
-    {
-        float threshold = vehicle.useIndividualRepairThreshold ? vehicle.individualRepairThreshold : globalRepairThreshold;
-        return vehicle.currentCondition <= threshold;
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
     }
 }
