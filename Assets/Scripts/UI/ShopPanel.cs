@@ -36,7 +36,7 @@ public class ShopPanel : MonoBehaviour
         if (btnOpenShop != null)
         {
             btnOpenShop.onClick.RemoveAllListeners();
-            // TogglePanel буде відкривати або закривати вікно залежно від поточного стану
+
             btnOpenShop.onClick.AddListener(TogglePanel);
         }
 
