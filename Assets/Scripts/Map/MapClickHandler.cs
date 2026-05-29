@@ -1,46 +1,32 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
 /// <summary>
-/// Обробляє кліки на карті під час побудови маршруту.
-/// Прикріпити до окремого GameObject (наприклад, "MapInput" у Settings).
-/// Активується/деактивується через RouteBuilderPanel.
+/// Обробляє кліки на карті як під час побудови маршруту, так і у звичайному режимі (відкриття інфо міста).
 /// </summary>
 public class MapClickHandler : MonoBehaviour
 {
     public static MapClickHandler Instance { get; private set; }
 
     [Header("Налаштування кліку")]
-    [Tooltip("Радіус (у world units) для детектування кліку на місто")]
     public float clickRadius = 0.6f;
 
     [Header("Підсвітка міста при наведенні")]
-    public Color hoverColor = new Color(1f, 1f, 0f, 1f);   // жовтий
-    public Color selectedColor = new Color(0f, 1f, 0.4f, 1f); // зелений
+    public Color hoverColor = new Color(1f, 1f, 0f, 1f);
+    public Color selectedColor = new Color(0f, 1f, 0.4f, 1f);
     public Color normalColor = Color.white;
 
     [Header("Префаб для preview-ліній маршруту")]
-    [Tooltip("Той самий RoadLinePrefab що у RoadNetwork")]
     public GameObject linePrefab;
-
-    // ─── Стан ────────────────────────────────────────────────
 
     public bool IsActive { get; private set; } = false;
 
-    // Міста обрані гравцем у поточній сесії побудови
     private List<CityNode> selectedCities = new List<CityNode>();
-
-    // Тимчасові лінії preview (очищаємо при скасуванні)
     private List<LineRenderer> previewLines = new List<LineRenderer>();
-
-    // Місто під курсором
     private CityNode hoveredCity = null;
-
-    // Усі міста на сцені (кешуємо один раз)
     private CityNode[] allCities;
-
-    // ─── Ініціалізація ───────────────────────────────────────
 
     private void Awake()
     {
@@ -53,18 +39,13 @@ public class MapClickHandler : MonoBehaviour
         allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
     }
 
-    // ─── Активація / деактивація ─────────────────────────────
-
-    /// <summary>Викликається RouteBuilderPanel коли гравець натискає "Новий маршрут"</summary>
     public void StartBuilding()
     {
         IsActive = true;
         selectedCities.Clear();
         ClearPreviewLines();
-        Debug.Log("[MapClickHandler] Режим побудови маршруту активовано. Клікайте на міста.");
     }
 
-    /// <summary>Викликається при Confirm або Cancel</summary>
     public void StopBuilding()
     {
         IsActive = false;
@@ -74,11 +55,18 @@ public class MapClickHandler : MonoBehaviour
         selectedCities.Clear();
     }
 
-    // ─── Update ──────────────────────────────────────────────
-
     private void Update()
     {
-        if (!IsActive) return;
+        // ВАЖЛИВО: Не реагувати на кліки/наведення по карті, якщо курсор/натискання зараз над UI-панеллю!
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        {
+            if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
+            {
+                SetCityColor(hoveredCity, normalColor);
+                hoveredCity = null;
+            }
+            return;
+        }
 
         HandleHover();
 
@@ -86,65 +74,62 @@ public class MapClickHandler : MonoBehaviour
             HandleClick();
     }
 
-    // ─── Hover ───────────────────────────────────────────────
-
     private void HandleHover()
     {
         CityNode nearest = GetCityUnderCursor();
-
         if (nearest == hoveredCity) return;
 
-        // Зняти підсвітку з попереднього
-        if (hoveredCity != null && !selectedCities.Contains(hoveredCity))
+        if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
             SetCityColor(hoveredCity, normalColor);
 
         hoveredCity = nearest;
 
-        // Підсвітити новий (якщо ще не обраний)
-        if (hoveredCity != null && !selectedCities.Contains(hoveredCity))
+        if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
             SetCityColor(hoveredCity, hoverColor);
     }
-
-    // ─── Клік ────────────────────────────────────────────────
 
     private void HandleClick()
     {
         CityNode city = GetCityUnderCursor();
         if (city == null) return;
 
-        // Shift+клік на вже обране місто — видалити з ланцюжка
+        if (!IsActive)
+        {
+            // --- ЗВИЧАЙНИЙ РЕЖИМ ---
+            // Клік по місту відкриває інформаційну панель міста
+            if (CityInfoPanel.Instance != null)
+            {
+                CityInfoPanel.Instance.OpenPanel(city);
+            }
+            return;
+        }
+
+        // --- РЕЖИМ ПОБУДОВИ МАРШРУТУ ---
         if (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && selectedCities.Contains(city))
         {
             RemoveCity(city);
             return;
         }
 
-        // Не дозволяти дублікати сусідніх зупинок (A→A)
         if (selectedCities.Count > 0 && selectedCities[selectedCities.Count - 1] == city)
             return;
 
         AddCity(city);
     }
 
-    // ─── Додавання / видалення міст ──────────────────────────
-
     private void AddCity(CityNode city)
     {
         selectedCities.Add(city);
         SetCityColor(city, selectedColor);
 
-        // Намалювати preview-лінію від попереднього міста
         if (selectedCities.Count >= 2)
         {
             CityNode prev = selectedCities[selectedCities.Count - 2];
             AddPreviewLine(prev, city);
         }
 
-        // Також замкнути кільце (preview від останнього до першого)
         RefreshClosingLine();
-
         RouteBuilderPanel.Instance?.OnCityAdded(city, selectedCities);
-        Debug.Log($"[MapClickHandler] Додано: {city.cityName} (зупинок: {selectedCities.Count})");
     }
 
     private void RemoveCity(CityNode city)
@@ -154,23 +139,15 @@ public class MapClickHandler : MonoBehaviour
 
         selectedCities.RemoveAt(index);
         SetCityColor(city, normalColor);
-
-        // Перемалювати всі preview-лінії
         RebuildPreviewLines();
-
         RouteBuilderPanel.Instance?.OnCityRemoved(city, selectedCities);
-        Debug.Log($"[MapClickHandler] Видалено: {city.cityName}");
     }
-
-    // ─── Preview-лінії ───────────────────────────────────────
 
     private void AddPreviewLine(CityNode a, CityNode b)
     {
         if (linePrefab == null)
         {
-            // Спробувати взяти prefab з RoadNetwork якщо не призначено вручну
-            if (RoadNetwork.Instance != null)
-                linePrefab = RoadNetwork.Instance.roadLinePrefab;
+            if (RoadNetwork.Instance != null) linePrefab = RoadNetwork.Instance.roadLinePrefab;
             if (linePrefab == null) return;
         }
 
@@ -182,16 +159,13 @@ public class MapClickHandler : MonoBehaviour
         lr.SetPosition(0, a.transform.position);
         lr.SetPosition(1, b.transform.position);
         lr.startWidth = lr.endWidth = 0.14f;
-
-        // Пунктирний вигляд через прозорість
         lr.startColor = lr.endColor = new Color(0.2f, 1f, 0.4f, 0.75f);
         lr.sortingLayerName = "Roads";
-        lr.sortingOrder = 3; // поверх доріг і підсвіток
+        lr.sortingOrder = 3;
 
         previewLines.Add(lr);
     }
 
-    /// <summary>Лінія що замикає кільце (останнє місто → перше)</summary>
     private LineRenderer closingLine;
 
     private void RefreshClosingLine()
@@ -219,7 +193,6 @@ public class MapClickHandler : MonoBehaviour
         closingLine.SetPosition(0, last.transform.position);
         closingLine.SetPosition(1, first.transform.position);
         closingLine.startWidth = closingLine.endWidth = 0.10f;
-        // Пунктирна замикаюча лінія — трохи прозоріша
         closingLine.startColor = closingLine.endColor = new Color(0.2f, 1f, 0.4f, 0.35f);
         closingLine.sortingLayerName = "Roads";
         closingLine.sortingOrder = 3;
@@ -243,14 +216,14 @@ public class MapClickHandler : MonoBehaviour
         closingLine = null;
     }
 
-    // ─── Допоміжні ───────────────────────────────────────────
-
     private CityNode GetCityUnderCursor()
     {
         if (allCities == null || allCities.Length == 0) return null;
-
         if (Mouse.current == null) return null;
+
         Vector2 screenPos = Mouse.current.position.ReadValue();
+        if (Camera.main == null) return null;
+
         Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 0f));
         worldPos.z = 0f;
 
@@ -281,22 +254,13 @@ public class MapClickHandler : MonoBehaviour
             SetCityColor(city, normalColor);
     }
 
-    // ─── Публічний доступ ────────────────────────────────────
-
-
     public List<CityNode> GetSelectedCities() => new List<CityNode>(selectedCities);
-
 
     public void RemoveCityExternal(CityNode city, List<CityNode> newList)
     {
-        // Синхронізувати внутрішній список
         selectedCities = new List<CityNode>(newList);
-
-        // Скинути колір видаленого міста
         if (!selectedCities.Contains(city))
             SetCityColor(city, normalColor);
-
-        // Перемалювати всі preview-лінії
         RebuildPreviewLines();
     }
 }
