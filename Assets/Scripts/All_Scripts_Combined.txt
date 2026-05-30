@@ -1,0 +1,3202 @@
+Назва файла: MechanicManager.cs
+
+using UnityEngine;
+
+public class MechanicManager : MonoBehaviour
+{
+    public static MechanicManager Instance { get; private set; }
+
+    [Header("Глобальний поріг відправки на ТО (%)")]
+    public float globalRepairThreshold = 30f;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+}
+
+==================================================
+
+Назва файла: RouteDefinition.cs
+
+using UnityEngine;
+using System.Collections.Generic;
+
+[System.Serializable]
+public class RouteStop
+{
+    public CityNode city;
+}
+
+public class RouteDefinition : MonoBehaviour
+{
+    [Header("Назва маршруту")]
+    public string routeName;
+
+    [Header("Колір маршруту (обирає гравець)")]
+    public Color routeColor = new Color(1f, 0.6f, 0f); // оранжевий за замовчуванням
+
+    [Header("Зупинки по порядку")]
+    public List<RouteStop> stops = new List<RouteStop>();
+
+    [Header("Статистика")]
+    public float incomeStats = 0f; // Додано для збереження прибутку маршруту
+
+    [HideInInspector]
+    public List<LineRenderer> highlightLines = new List<LineRenderer>();
+
+    public bool IsValid() => stops != null && stops.Count >= 2;
+
+    public CityNode GetNextCity(CityNode current)
+    {
+        for (int i = 0; i < stops.Count; i++)
+        {
+            if (stops[i].city == current)
+                return stops[(i + 1) % stops.Count].city;
+        }
+        return stops[0].city;
+    }
+
+    public void ShowHighlight(bool hasVehicle)
+    {
+        Color color = hasVehicle
+            ? routeColor
+            : new Color(routeColor.r * 0.4f,
+                        routeColor.g * 0.4f,
+                        routeColor.b * 0.4f, 0.8f);
+
+        foreach (var lr in highlightLines)
+        {
+            if (lr == null) continue;
+            lr.startColor = color;
+            lr.endColor = color;
+            lr.enabled = true;
+        }
+    }
+
+    public void HideHighlight()
+    {
+        foreach (var lr in highlightLines)
+            if (lr != null) lr.enabled = false;
+    }
+}
+
+==================================================
+
+Назва файла: RouteVisualizer.cs
+
+using UnityEngine;
+
+[RequireComponent(typeof(RouteDefinition))]
+public class RouteVisualizer : MonoBehaviour
+{
+    public GameObject linePrefab;
+    private RouteDefinition route;
+
+    private void Awake()
+    {
+        route = GetComponent<RouteDefinition>();
+    }
+
+    private void Start()
+    {
+        BuildHighlightLines();
+        route.HideHighlight();
+    }
+
+    private void BuildHighlightLines()
+    {
+        if (!route.IsValid() || linePrefab == null) return;
+        route.highlightLines.Clear();
+
+        for (int i = 0; i < route.stops.Count; i++)
+        {
+            CityNode a = route.stops[i].city;
+            CityNode b = route.stops[(i + 1) % route.stops.Count].city;
+            if (a == null || b == null) continue;
+
+            var obj = Instantiate(linePrefab, transform);
+            var lr = obj.GetComponent<LineRenderer>();
+            if (lr == null) continue;
+
+            lr.positionCount = 2;
+            lr.SetPosition(0, a.transform.position);
+            lr.SetPosition(1, b.transform.position);
+            lr.startWidth = lr.endWidth = 0.18f;
+            lr.sortingLayerName = "Roads";
+            lr.sortingOrder = 1;
+            lr.startColor = lr.endColor = route.routeColor;
+            lr.enabled = false;
+
+            route.highlightLines.Add(lr);
+        }
+    }
+}
+
+==================================================
+
+Назва файла: SaveManager.cs
+
+using UnityEngine;
+using System.IO;
+using Newtonsoft.Json;
+
+[System.Serializable]
+public class GameSaveData
+{
+    public float balance;
+    public float totalIncome;
+    public float totalExpenses;
+    public float vehicleAssetsValue;
+    public float roadAssetsValue;
+    public float currentWage;
+    public int saveYear;
+    public int saveMonth;
+    public int saveDay;
+    public int saveHour;
+    public float vehicleCondition;
+    public string vehicleStatus;
+    public string currentCityName;
+}
+
+public class SaveManager : MonoBehaviour
+{
+    public static SaveManager Instance { get; private set; }
+
+    private string SavePath =>
+        Path.Combine(Application.persistentDataPath, "save.json");
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        if (GameTimeManager.Instance != null)
+            GameTimeManager.Instance.OnDayChanged += AutoSave;
+    }
+
+    private void OnDestroy()
+    {
+        if (GameTimeManager.Instance != null)
+            GameTimeManager.Instance.OnDayChanged -= AutoSave;
+    }
+
+    private void AutoSave(GameDate date)
+    {
+        // Автозбереження кожні 5 ігрових днів
+        if (date.day % 5 == 0)
+            Save();
+    }
+
+    public void Save()
+    {
+        var fm = FinanceManager.Instance;
+        var tm = GameTimeManager.Instance;
+        var wm = WageManager.Instance;
+
+        if (fm == null || tm == null) return;
+
+        var data = new GameSaveData
+        {
+            balance = fm.balance,
+            totalIncome = fm.totalIncome,
+            totalExpenses = fm.totalExpenses,
+            vehicleAssetsValue = fm.vehicleAssetsValue,
+            roadAssetsValue = fm.roadAssetsValue,
+            currentWage = wm != null ? wm.currentWage : 500f,
+            saveYear = tm.CurrentDate.year,
+            saveMonth = tm.CurrentDate.month,
+            saveDay = tm.CurrentDate.day,
+            saveHour = tm.CurrentDate.hour,
+        };
+
+        // Знайти перший ТЗ і зберегти його стан
+        var vehicle = FindFirstObjectByType<VehicleController>();
+        if (vehicle != null)
+        {
+            data.vehicleCondition = vehicle.condition;
+            data.vehicleStatus = vehicle.status.ToString();
+            data.currentCityName = vehicle.currentCity?.cityName ?? "";
+        }
+
+        string json = JsonConvert.SerializeObject(data, Formatting.Indented);
+        File.WriteAllText(SavePath, json);
+        Debug.Log($"Збережено: {SavePath}");
+    }
+
+    public bool HasSave() => File.Exists(SavePath);
+
+    public GameSaveData Load()
+    {
+        if (!HasSave()) return null;
+
+        string json = File.ReadAllText(SavePath);
+        return JsonConvert.DeserializeObject<GameSaveData>(json);
+    }
+
+    public void ApplySave(GameSaveData data)
+    {
+        if (data == null) return;
+
+        var fm = FinanceManager.Instance;
+        var tm = GameTimeManager.Instance;
+        var wm = WageManager.Instance;
+
+        if (fm != null)
+        {
+            fm.balance = data.balance;
+            fm.totalIncome = data.totalIncome;
+            fm.totalExpenses = data.totalExpenses;
+            fm.vehicleAssetsValue = data.vehicleAssetsValue;
+            fm.roadAssetsValue = data.roadAssetsValue;
+        }
+
+        if (wm != null)
+            wm.currentWage = data.currentWage;
+
+        // Відновити ігровий час
+        // (GameTimeManager не має публічного сеттера дати —
+        //  додамо метод SetDate)
+        tm?.SetDate(data.saveYear, data.saveMonth,
+                    data.saveDay, data.saveHour);
+
+        // Відновити стан ТЗ
+        var vehicle = FindFirstObjectByType<VehicleController>();
+        if (vehicle != null)
+            vehicle.condition = data.vehicleCondition;
+
+        Debug.Log("Гру відновлено!");
+    }
+
+    public void DeleteSave()
+    {
+        if (HasSave()) File.Delete(SavePath);
+    }
+}
+
+==================================================
+
+Назва файла: FinanceManager.cs
+
+﻿using UnityEngine;
+using System.Collections.Generic;
+
+public class FinanceManager : MonoBehaviour
+{
+    public static FinanceManager Instance { get; private set; }
+
+    [Header("Баланс")]
+    public float startingBalance = 120000f;
+    public float balance;
+
+    [Header("Статистика")]
+    public float totalIncome;
+    public float totalExpenses;
+
+    [Header("Активи компнаї")]
+    public float vehicleAssetsValue;
+    public float roadAssetsValue;
+
+    private List<VehicleController> vehicles = new List<VehicleController>();
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+        balance = startingBalance;
+    }
+
+    private void Start()
+    {
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnDayChanged += OnNewDay;
+            GameTimeManager.Instance.OnMonthChanged += OnNewMonth;
+        }
+    }
+
+    public void OnNewDay(GameDate date)
+    {
+        foreach (var v in vehicles)
+        {
+            if (v == null) continue;
+            // Щоденне ТО (незначне)
+            AddExpense(v.vehicleData.maintenanceCost / 30f);
+        }
+    }
+
+    public void OnNewMonth(GameDate date)
+    {
+        // Зарплати водіям
+        if (WageManager.Instance != null)
+        {
+            float wages = WageManager.Instance.GetTotalMonthlyWageCost(vehicles.Count);
+            AddExpense(wages);
+        }
+
+        // Обслуговування гаражів та механіків
+        float facilitiesCost = 0f;
+        var allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
+        foreach (var c in allCities)
+        {
+            if (c.hasGarage)
+            {
+                facilitiesCost += 500f; // Технічне утримання гаража
+                facilitiesCost += c.mechanics * 500f; // Зарплата механікам
+            }
+        }
+
+        if (facilitiesCost > 0)
+        {
+            AddExpense(facilitiesCost);
+            Debug.Log($"[{date.ToShortString()}] Витрати на інфраструктуру: {facilitiesCost:F0} у.о.");
+        }
+    }
+
+    public void AddIncome(float amount)
+    {
+        balance += amount;
+        totalIncome += amount;
+    }
+
+    public void AddExpense(float amount)
+    {
+        balance -= amount;
+        totalExpenses += amount;
+    }
+
+    public bool CanAfford(float amount) => balance >= amount;
+
+    public void RegisterVehicle(VehicleController v)
+    {
+        if (!vehicles.Contains(v))
+        {
+            vehicles.Add(v);
+            vehicleAssetsValue += v.vehicleData.purchaseCost;
+        }
+    }
+
+    public void UnregisterVehicle(VehicleController v)
+    {
+        if (vehicles.Remove(v))
+            vehicleAssetsValue -= v.vehicleData.purchaseCost;
+    }
+
+    public void RegisterRoadValue(float cost) => roadAssetsValue += cost;
+    public void UnregisterRoadValue(float cost) => roadAssetsValue -= cost;
+}
+
+==================================================
+
+Назва файла: VehicleController.cs
+
+﻿using DG.Tweening;
+using System.Collections.Generic;
+using UnityEngine;
+
+public enum VehicleStatus
+{
+    Idle,
+    Moving,
+    ReturningToGarage,
+    Repairing,
+    Broken,
+    Strike
+}
+
+public class VehicleController : MonoBehaviour
+{
+    [Header("Дані транспортного засобу")]
+    public VehicleData vehicleData;
+    public string customName;
+
+    [Header("Гаражі (міста приписки)")]
+    public List<CityNode> garageCities = new List<CityNode>();
+
+    [Header("Поточний стан")]
+    public VehicleStatus status = VehicleStatus.Idle;
+    public CityNode currentCity;
+    public float condition = 100f;
+
+    [Header("Обслуговування")]
+    public bool useIndividualRepairThreshold = false;
+    public float individualRepairThreshold = 30f;
+    public float totalRepairCost = 0f;
+    public float totalFuelCost = 0f;
+    public float totalIncome = 0f;
+
+    [Header("Завантаження")]
+    public int currentLoad = 0;
+    public CityNode loadDestination = null;
+
+    [Header("Активний маршрут")]
+    public RouteDefinition activeRoute;
+
+    [Header("Тестовий маршрут (запускається автоматично)")]
+    public RouteDefinition testRoute;
+
+    [Header("Налаштування")]
+    public float visualSpeed = 3f;
+
+    private const float BASE_RATE = 10f;
+    private const float KM_PER_UNIT = 50f;
+    public const float FUEL_PRICE = 1f;
+
+    private Tween moveTween;
+    private RouteDefinition pendingRoute;
+
+    private void Start()
+    {
+        FinanceManager.Instance?.RegisterVehicle(this);
+
+        if (WageManager.Instance != null)
+        {
+            WageManager.Instance.OnStrikeStarted += OnStrikeStarted;
+            WageManager.Instance.OnStrikeEnded += OnStrikeEnded;
+        }
+
+        if (testRoute != null)
+            StartRoute(testRoute);
+
+        Invoke(nameof(RegisterSelf), 0.1f);
+    }
+
+    private void RegisterSelf()
+    {
+        FindFirstObjectByType<FleetPanelController>()?.RegisterVehicle(this);
+    }
+
+    private void OnDestroy()
+    {
+        moveTween?.Kill();
+        FinanceManager.Instance?.UnregisterVehicle(this);
+
+        if (WageManager.Instance != null)
+        {
+            WageManager.Instance.OnStrikeStarted -= OnStrikeStarted;
+            WageManager.Instance.OnStrikeEnded -= OnStrikeEnded;
+        }
+    }
+
+    public bool StartRoute(RouteDefinition route)
+    {
+        if (status != VehicleStatus.Idle) return false;
+        if (route == null || !route.IsValid()) return false;
+
+        activeRoute = route;
+        currentCity = route.stops[0].city;
+        transform.position = currentCity.transform.position;
+
+        Debug.Log($"Маршрут запущено: {route.routeName}");
+        activeRoute.ShowHighlight(true);
+
+        LoadCargo();
+        MoveToNext();
+        return true;
+    }
+
+    public void StopRoute()
+    {
+        moveTween?.Kill();
+        if (activeRoute != null)
+            activeRoute.ShowHighlight(false);
+        activeRoute = null;
+        currentLoad = 0;
+        loadDestination = null;
+        status = VehicleStatus.Idle;
+    }
+
+    private void LoadCargo()
+    {
+        currentLoad = 0;
+        loadDestination = null;
+
+        if (activeRoute == null || currentCity == null) return;
+        if (activeRoute.stops == null || activeRoute.stops.Count == 0) return;
+
+        foreach (var stop in activeRoute.stops)
+        {
+            if (stop == null || stop.city == null) continue;
+            if (stop.city == currentCity) continue;
+            if (!currentCity.GeneratesIncomeFor(vehicleData.vehicleType)) continue;
+            if (currentCity.demands == null || currentCity.demands.Count == 0) continue;
+
+            int available = currentCity.GetDemandTo(stop.city);
+            if (available <= 0) continue;
+
+            currentLoad = currentCity.TakeUnits(stop.city, (int)vehicleData.maxCapacity);
+            loadDestination = stop.city;
+
+            return;
+        }
+    }
+
+    private void MoveToNext()
+    {
+        if (activeRoute == null) return;
+        if (status == VehicleStatus.Broken ||
+            status == VehicleStatus.Strike ||
+            status == VehicleStatus.Repairing ||
+            status == VehicleStatus.ReturningToGarage) return;
+
+        CityNode next = activeRoute.GetNextCity(currentCity);
+        if (next == null) return;
+
+        RoadConnection road = RoadNetwork.Instance?.GetRoad(currentCity, next);
+        if (road == null)
+        {
+            StopRoute();
+            return;
+        }
+
+        RotateTowards(next.transform.position);
+
+        float distUnits = Vector3.Distance(
+            currentCity.transform.position, next.transform.position);
+        float distKm = distUnits * KM_PER_UNIT;
+        float speedMod = road.roadData.speedLimitKmh / 150f;
+        float duration = Mathf.Max(0.5f, distUnits / (visualSpeed * speedMod));
+
+        status = VehicleStatus.Moving;
+        moveTween = transform
+            .DOMove(next.transform.position, duration)
+            .SetEase(Ease.Linear)
+            .OnComplete(() => ArriveAt(next, road, distKm));
+    }
+
+    private void ArriveAt(CityNode city, RoadConnection road, float distKm)
+    {
+        CityNode prev = currentCity;
+        currentCity = city;
+
+        // Дохід якщо привезли вантаж
+        if (currentLoad > 0 && loadDestination == city)
+        {
+            float income = (distKm / KM_PER_UNIT) * currentLoad * (prev != null ? prev.activityLevel / 3f : 1f) * BASE_RATE;
+            FinanceManager.Instance?.AddIncome(income);
+            totalIncome += income;
+            if (activeRoute != null) activeRoute.incomeStats += income;
+            currentLoad = 0;
+            loadDestination = null;
+        }
+        else if (currentLoad == 0 && city.GeneratesIncomeFor(vehicleData.vehicleType))
+        {
+            int consumed = DemandManager.Instance != null
+                ? DemandManager.Instance.ConsumeCapacity(city, (int)vehicleData.maxCapacity)
+                : (int)vehicleData.maxCapacity;
+
+            if (consumed > 0)
+            {
+                float income = (distKm / KM_PER_UNIT) * consumed * (prev != null ? prev.activityLevel / 3f : 1f) * BASE_RATE;
+                FinanceManager.Instance?.AddIncome(income);
+                totalIncome += income;
+                if (activeRoute != null) activeRoute.incomeStats += income;
+            }
+        }
+
+        float fuelC = (distKm / 100f) * vehicleData.fuelPer100km * FUEL_PRICE;
+        FinanceManager.Instance?.AddExpense(fuelC);
+        totalFuelCost += fuelC;
+        ApplyWear(road, distKm);
+
+        if (status != VehicleStatus.Broken && status != VehicleStatus.Strike && status != VehicleStatus.ReturningToGarage && status != VehicleStatus.Repairing)
+        {
+            status = VehicleStatus.Idle;
+            if (currentLoad == 0) LoadCargo();
+
+            float threshold = useIndividualRepairThreshold ? individualRepairThreshold : (MechanicManager.Instance?.globalRepairThreshold ?? 30f);
+            if (condition <= threshold)
+            {
+                DriveToGarageForRepair();
+            }
+            else
+            {
+                MoveToNext();
+            }
+        }
+    }
+
+    private void ApplyWear(RoadConnection road, float distKm)
+    {
+        float wear = (distKm * road.roadData.wearMultiplier * 1f) / vehicleData.maintenanceCost;
+        condition = Mathf.Max(0f, condition - wear);
+
+        if (condition <= 0f)
+        {
+            status = VehicleStatus.Broken;
+            moveTween?.Kill();
+        }
+    }
+
+    public void RequestRepair()
+    {
+        if (status == VehicleStatus.Repairing || status == VehicleStatus.ReturningToGarage) return;
+
+        if (status == VehicleStatus.Broken)
+        {
+            float towCost = vehicleData.purchaseCost * 0.05f;
+            float repairCost = vehicleData.purchaseCost * 0.15f;
+            float totalCost = towCost + repairCost;
+
+            if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(totalCost)) return;
+
+            FinanceManager.Instance?.AddExpense(totalCost);
+            totalRepairCost += totalCost;
+
+            CityNode garage = GetNearestGarage();
+            if (garage != null)
+            {
+                currentCity = garage;
+                transform.position = garage.transform.position;
+            }
+
+            StartRepairing();
+        }
+        else
+        {
+            float threshold = useIndividualRepairThreshold ? individualRepairThreshold : (MechanicManager.Instance?.globalRepairThreshold ?? 30f);
+            if (condition < threshold || condition < 60f) // Можна ремонтувати якщо стан менше певного % вручну
+            {
+                pendingRoute = activeRoute;
+                StopRoute();
+                DriveToGarageForRepair();
+            }
+        }
+    }
+
+    private CityNode GetNearestGarage()
+    {
+        var allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
+        CityNode nearest = null;
+        float minDist = float.MaxValue;
+
+        foreach (var c in allCities)
+        {
+            if (c != null && c.hasGarage)
+            {
+                float dist = Vector3.Distance(transform.position, c.transform.position);
+                if (dist < minDist) { minDist = dist; nearest = c; }
+            }
+        }
+
+        if (nearest == null && garageCities != null && garageCities.Count > 0)
+        {
+            foreach (var g in garageCities)
+            {
+                if (g == null) continue;
+                float dist = Vector3.Distance(transform.position, g.transform.position);
+                if (dist < minDist) { minDist = dist; nearest = g; }
+            }
+        }
+        return nearest;
+    }
+
+    private void DriveToGarageForRepair()
+    {
+        if (currentCity != null && currentCity.hasGarage) { StartRepairing(); return; }
+
+        CityNode garage = GetNearestGarage();
+        if (garage == null) { StartRepairing(); return; }
+        if (currentCity == garage) { StartRepairing(); return; }
+
+        var path = RoadNetwork.Instance?.FindPath(currentCity, garage);
+        if (path == null || path.Count <= 1)
+        {
+            StartRepairing();
+            return;
+        }
+
+        status = VehicleStatus.ReturningToGarage;
+        MoveAlongPath(path, 1, garage);
+    }
+
+    private void MoveAlongPath(List<CityNode> path, int index, CityNode destination)
+    {
+        if (index >= path.Count)
+        {
+            currentCity = destination;
+            StartRepairing();
+            return;
+        }
+
+        CityNode next = path[index];
+        RoadConnection road = RoadNetwork.Instance?.GetRoad(currentCity, next);
+
+        if (road == null) { StartRepairing(); return; }
+
+        RotateTowards(next.transform.position);
+
+        float dist = Vector3.Distance(transform.position, next.transform.position);
+        float speedMod = road.roadData.speedLimitKmh / 150f;
+        float duration = Mathf.Max(0.3f, dist / (visualSpeed * speedMod));
+
+        moveTween = transform
+            .DOMove(next.transform.position, duration)
+            .SetEase(Ease.Linear)
+            .OnComplete(() =>
+            {
+                currentCity = next;
+                if (currentCity == destination || currentCity.hasGarage)
+                {
+                    StartRepairing();
+                }
+                else
+                {
+                    MoveAlongPath(path, index + 1, destination);
+                }
+            });
+    }
+
+    private void StartRepairing()
+    {
+        status = VehicleStatus.Repairing;
+
+        if (condition > 0f)
+        {
+            float cost = vehicleData.purchaseCost * 0.08f;
+            if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(cost))
+            {
+                status = VehicleStatus.Idle;
+                return;
+            }
+            FinanceManager.Instance?.AddExpense(cost);
+            totalRepairCost += cost;
+        }
+
+        float repairTime = currentCity != null && currentCity.hasGarage ? Mathf.Max(1f, 5f - (currentCity.mechanics * 0.5f)) : 5f;
+        DOVirtual.DelayedCall(repairTime, FinishRepair);
+    }
+
+    private void FinishRepair()
+    {
+        condition = 100f;
+        status = VehicleStatus.Idle;
+
+        if (pendingRoute != null)
+        {
+            var r = pendingRoute;
+            pendingRoute = null;
+            StartRoute(r);
+        }
+    }
+
+    private void RotateTowards(Vector3 target)
+    {
+        Vector3 dir = target - transform.position;
+        if (dir == Vector3.zero) return;
+
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        transform.rotation = Quaternion.Euler(0f, 0f, angle);
+
+        Vector3 scale = transform.localScale;
+        scale.y = dir.x < 0 ? -Mathf.Abs(scale.y) : Mathf.Abs(scale.y);
+        transform.localScale = scale;
+    }
+
+    private void OnStrikeStarted()
+    {
+        moveTween?.Kill();
+        status = VehicleStatus.Strike;
+    }
+
+    private void OnStrikeEnded()
+    {
+        if (status != VehicleStatus.Strike) return;
+        status = VehicleStatus.Idle;
+        if (activeRoute != null) MoveToNext();
+    }
+}
+
+==================================================
+
+Назва файла: VehicleData.cs
+
+using UnityEngine;
+
+public enum VehicleType { Cargo, Passenger }
+
+[CreateAssetMenu(fileName = "NewVehicle",
+                 menuName = "Logistics/Vehicle Data")]
+public class VehicleData : ScriptableObject
+{
+    [Header("Ідентифікація")]
+    public string vehicleName;
+    public VehicleType vehicleType;
+
+    [Header("Характеристики")]
+    public int maxCapacity;        // одиниці вантажу або кількість пасажирів
+    public float maxSpeedKmh;      // обмежується типом дороги
+    public Sprite icon;            // іконка для UI
+    [Header("Економіка")]
+    public float purchaseCost;     // вартість придбання
+    public float fuelPer100km;     // витрата пального
+    public float maintenanceCost;  // вартість ТО (базова за одиницю ремонту)
+}
+
+==================================================
+
+Назва файла: GameTimeManager.cs
+
+﻿using UnityEngine;
+using System;
+
+[System.Serializable]
+public struct GameDate
+{
+    public int year;
+    public int month;
+    public int day;
+    public int hour;
+
+    public GameDate(int y, int m, int d, int h)
+    {
+        year = y;
+        month = m;
+        day = d;
+        hour = h;
+    }
+
+    public override string ToString()
+    {
+        return "Y" + year.ToString("D2") + "-M" + month.ToString("D2")
+             + "-D" + day.ToString("D2") + "  " + hour.ToString("D2") + ":00";
+    }
+
+    public string ToShortString()
+    {
+        return "Y" + year.ToString("D2") + " M" + month.ToString("D2")
+             + " D" + day.ToString("D2");
+    }
+
+    public GameDate AddHours(int hours)
+    {
+        GameDate result = this;
+        result.hour += hours;
+
+        while (result.hour >= 24)
+        {
+            result.hour -= 24;
+            result.day++;
+
+            if (result.day > 30)
+            {
+                result.day = 1;
+                result.month++;
+
+                if (result.month > 12)
+                {
+                    result.month = 1;
+                    result.year++;
+                }
+            }
+        }
+        return result;
+    }
+
+    public bool IsAfter(GameDate other)
+    {
+        if (year != other.year) return year > other.year;
+        if (month != other.month) return month > other.month;
+        if (day != other.day) return day > other.day;
+        return hour > other.hour;
+    }
+
+    public int HoursUntil(GameDate future)
+    {
+        int cur = year * 12 * 30 * 24 + month * 30 * 24 + day * 24 + hour;
+        int tgt = future.year * 12 * 30 * 24 + future.month * 30 * 24
+                + future.day * 24 + future.hour;
+        return Mathf.Max(0, tgt - cur);
+    }
+}
+
+public class GameTimeManager : MonoBehaviour
+{
+    public static GameTimeManager Instance { get; private set; }
+
+    [Header("Початкова дата")]
+    public int startYear = 1;
+    public int startMonth = 1;
+    public int startDay = 1;
+
+    [Header("Швидкість (0=пауза, 1=1x, 2=2x, 4=4x)")]
+    [Range(0, 4)]
+    public int timeSpeed = 1;
+
+    [Header("Поточна дата (тільки читання)")]
+    [SerializeField] private GameDate currentDate;
+
+    // 1 година = 10/24 реальної секунди при звичайній швидкості (1x)
+    private float baseSecondsPerHour = 10f / 24f;
+    private float timer = 0f;
+
+    public event Action<GameDate> OnHourChanged;
+    public event Action<GameDate> OnDayChanged;
+    public event Action<GameDate> OnMonthChanged;
+    public event Action<GameDate> OnYearChanged;
+
+    public GameDate CurrentDate
+    {
+        get { return currentDate; }
+    }
+
+    private void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+
+        currentDate = new GameDate(startYear, startMonth, startDay, 0);
+    }
+
+    private void Update()
+    {
+        if (timeSpeed == 0) return;
+
+        // множимо реальний час на множник швидкості (1, 2 або 4)
+        timer += Time.deltaTime * timeSpeed;
+
+        // Перевіряємо завжди з базовим часом
+        while (timer >= baseSecondsPerHour)
+        {
+            timer -= baseSecondsPerHour;
+            AdvanceHour();
+        }
+    }
+
+    private void AdvanceHour()
+    {
+        int prevDay = currentDate.day;
+        int prevMonth = currentDate.month;
+        int prevYear = currentDate.year;
+
+        currentDate = currentDate.AddHours(1);
+
+        if (OnHourChanged != null)
+            OnHourChanged(currentDate);
+
+        if (currentDate.day != prevDay)
+        {
+            if (OnDayChanged != null)
+                OnDayChanged(currentDate);
+        }
+
+        if (currentDate.month != prevMonth)
+        {
+            if (OnMonthChanged != null)
+                OnMonthChanged(currentDate);
+        }
+
+        if (currentDate.year != prevYear)
+        {
+            if (OnYearChanged != null)
+                OnYearChanged(currentDate);
+        }
+    }
+    public void SetDate(int year, int month, int day, int hour)
+    {
+        currentDate = new GameDate(year, month, day, hour);
+    }
+
+    public void SetSpeed(int s)
+    {
+        switch (s)
+        {
+            case 0:
+                timeSpeed = 0;
+                Time.timeScale = 0f; // Зупиняє DOTween та фізику (Пауза)
+                break;
+            case 1:
+                timeSpeed = 1;
+                Time.timeScale = 1f; // Звичайна швидкість
+                break;
+            case 2:
+                timeSpeed = 2;
+                Time.timeScale = 2f; // Пришвидшує DOTween в 2 рази
+                break;
+            case 3:
+                timeSpeed = 4;
+                Time.timeScale = 4f; // Пришвидшує DOTween в 4 рази
+                break;
+            default:
+                timeSpeed = 1;
+                Time.timeScale = 1f;
+                break;
+        }
+    }
+
+    public GameDate GetFutureDate(int hoursFromNow)
+    {
+        return currentDate.AddHours(hoursFromNow);
+    }
+
+    public bool HasPassed(GameDate date)
+    {
+        return currentDate.IsAfter(date);
+    }
+}
+
+==================================================
+
+Назва файла: CityNode.cs
+
+﻿using UnityEngine;
+using System.Collections.Generic;
+
+public enum CityType { Industrial, Trade, Tourist }
+
+[System.Serializable]
+public class CityDemand
+{
+    public CityNode destination;
+    public int currentUnits;  // скільки зараз чекає
+    public int maxUnits;      // максимум (ліміт)
+    [Range(0.01f, 0.05f)]
+    public float annualGrowth;  // 1–5% на рік
+}
+
+public class CityNode : MonoBehaviour
+{
+    [Header("Інформація про місто")]
+    public string cityName;
+    public CityType cityType;
+
+    [Header("Рівень (1=Мале, 2=Середнє, 3=Велике)")]
+    [Range(1, 3)]
+    public int activityLevel = 1;
+
+    [Header("Гараж та персонал")]
+    public bool hasGarage = false;
+    public int mechanics = 0;
+
+    [Header("Попит до інших міст")]
+    public List<CityDemand> demands = new List<CityDemand>();
+
+    private void Start()
+    {
+        float scale = 0.4f + activityLevel * 0.15f;
+        transform.localScale = new Vector3(scale, scale, 1f);
+
+        CreateLabel();
+
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnDayChanged += OnDayChanged;
+            GameTimeManager.Instance.OnYearChanged += OnYearChanged;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnDayChanged -= OnDayChanged;
+            GameTimeManager.Instance.OnYearChanged -= OnYearChanged;
+        }
+    }
+
+    // ─── Попит ───────────────────────────────────────────────
+
+    private void OnDayChanged(GameDate date)
+    {
+        foreach (var d in demands)
+        {
+            int replenish = Mathf.CeilToInt(d.maxUnits * 0.3f);
+            d.currentUnits = Mathf.Min(d.maxUnits, d.currentUnits + replenish);
+        }
+    }
+
+    private void OnYearChanged(GameDate date)
+    {
+        foreach (var d in demands)
+        {
+            float growth = Random.Range(0.01f, d.annualGrowth);
+            d.maxUnits = Mathf.RoundToInt(d.maxUnits * (1f + growth));
+        }
+    }
+
+    public int TakeUnits(CityNode destination, int capacity)
+    {
+        var d = demands.Find(x => x.destination == destination);
+        if (d == null) return 0;
+
+        int taken = Mathf.Min(d.currentUnits, capacity);
+        d.currentUnits -= taken;
+        return taken;
+    }
+
+    public int GetDemandTo(CityNode destination)
+    {
+        var d = demands.Find(x => x.destination == destination);
+        return d?.currentUnits ?? 0;
+    }
+
+    public int GetTotalDemand()
+    {
+        int total = 0;
+        foreach (var d in demands) total += d.currentUnits;
+        return total;
+    }
+
+    public bool GeneratesIncomeFor(VehicleType vt)
+    {
+        if (cityType == CityType.Trade) return true;
+        if (cityType == CityType.Industrial) return vt == VehicleType.Cargo;
+        if (cityType == CityType.Tourist) return vt == VehicleType.Passenger;
+        return false;
+    }
+
+    public int GetDailyDemandLimit() =>
+        activityLevel == 3 ? 300 : activityLevel == 2 ? 150 : 60;
+
+    public void BuildGarage()
+    {
+        hasGarage = true;
+        Debug.Log($"Гараж збудовано у місті {cityName}");
+    }
+
+    // ─── Назва міста у World Space ───────────────────────────
+
+    private void CreateLabel()
+    {
+        if (transform.Find("CityLabel") != null) return;
+
+        var obj = new GameObject("CityLabel");
+        obj.transform.SetParent(transform);
+        obj.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+        obj.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
+
+        var tmp = obj.AddComponent<TMPro.TextMeshPro>();
+        tmp.text = cityName;
+        tmp.fontSize = 8f;
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+        tmp.fontStyle = TMPro.FontStyles.Bold;
+        tmp.sortingOrder = 10;
+    }
+
+    // ─── Gizmos (тільки в редакторі) ─────────────────────────
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = cityType switch
+        {
+            CityType.Industrial => Color.yellow,
+            CityType.Tourist => Color.green,
+            CityType.Trade => Color.cyan,
+            _ => Color.white
+        };
+        Gizmos.DrawWireSphere(transform.position, 0.4f);
+    }
+
+    // -─── Найм механіка ───────────────────────────────
+    public void HireMechanic()
+    {
+        int hireCost = 1000; // Вартість найму одного механіка
+        if (FinanceManager.Instance.CanAfford(hireCost))
+        {
+            FinanceManager.Instance.AddExpense(hireCost);
+            mechanics++;
+            Debug.Log("Механіка найнято! Тепер їх: " + mechanics);
+        }
+        else
+        {
+            Debug.LogWarning("Недостатньо коштів для найму механіка!");
+        }
+    }
+
+    // ─── Обробка кліку по місту ───────────────────────────────
+    private void OnMouseDown()
+    {
+        // Перевіряємо чи не клікнули ми по UI (по вікнах/кнопках)
+        if (UnityEngine.EventSystems.EventSystem.current != null &&
+            UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+
+        // Відкриваємо інфо-панель
+        if (CityInfoPanel.Instance != null)
+        {
+            CityInfoPanel.Instance.OpenPanel(this);
+        }
+    }
+}
+
+==================================================
+
+Назва файла: MapClickHandler.cs
+
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
+using System.Collections.Generic;
+
+/// <summary>
+/// Обробляє кліки на карті як під час побудови маршруту, так і у звичайному режимі (відкриття інфо міста).
+/// </summary>
+public class MapClickHandler : MonoBehaviour
+{
+    public static MapClickHandler Instance { get; private set; }
+
+    [Header("Налаштування кліку")]
+    public float clickRadius = 0.6f;
+
+    [Header("Підсвітка міста при наведенні")]
+    public Color hoverColor = new Color(1f, 1f, 0f, 1f);
+    public Color selectedColor = new Color(0f, 1f, 0.4f, 1f);
+    public Color normalColor = Color.white;
+
+    [Header("Префаб для preview-ліній маршруту")]
+    public GameObject linePrefab;
+
+    public bool IsActive { get; private set; } = false;
+
+    private List<CityNode> selectedCities = new List<CityNode>();
+    private List<LineRenderer> previewLines = new List<LineRenderer>();
+    private CityNode hoveredCity = null;
+    private CityNode[] allCities;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
+    }
+
+    public void StartBuilding()
+    {
+        IsActive = true;
+        selectedCities.Clear();
+        ClearPreviewLines();
+    }
+
+    public void StopBuilding()
+    {
+        IsActive = false;
+        ClearPreviewLines();
+        ResetAllCityColors();
+        hoveredCity = null;
+        selectedCities.Clear();
+    }
+
+    private void Update()
+    {
+        // ВАЖЛИВО: Не реагувати на кліки/наведення по карті, якщо курсор/натискання зараз над UI-панеллю!
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        {
+            if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
+            {
+                SetCityColor(hoveredCity, normalColor);
+                hoveredCity = null;
+            }
+            return;
+        }
+
+        HandleHover();
+
+        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            HandleClick();
+    }
+
+    private void HandleHover()
+    {
+        CityNode nearest = GetCityUnderCursor();
+        if (nearest == hoveredCity) return;
+
+        if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
+            SetCityColor(hoveredCity, normalColor);
+
+        hoveredCity = nearest;
+
+        if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
+            SetCityColor(hoveredCity, hoverColor);
+    }
+
+    private void HandleClick()
+    {
+        CityNode city = GetCityUnderCursor();
+        if (city == null) return;
+
+        if (!IsActive)
+        {
+            // --- ЗВИЧАЙНИЙ РЕЖИМ ---
+            // Клік по місту відкриває інформаційну панель міста
+            if (CityInfoPanel.Instance != null)
+            {
+                CityInfoPanel.Instance.OpenPanel(city);
+            }
+            return;
+        }
+
+        // --- РЕЖИМ ПОБУДОВИ МАРШРУТУ ---
+        if (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && selectedCities.Contains(city))
+        {
+            RemoveCity(city);
+            return;
+        }
+
+        if (selectedCities.Count > 0 && selectedCities[selectedCities.Count - 1] == city)
+            return;
+
+        AddCity(city);
+    }
+
+    private void AddCity(CityNode city)
+    {
+        selectedCities.Add(city);
+        SetCityColor(city, selectedColor);
+
+        if (selectedCities.Count >= 2)
+        {
+            CityNode prev = selectedCities[selectedCities.Count - 2];
+            AddPreviewLine(prev, city);
+        }
+
+        RefreshClosingLine();
+        RouteBuilderPanel.Instance?.OnCityAdded(city, selectedCities);
+    }
+
+    private void RemoveCity(CityNode city)
+    {
+        int index = selectedCities.IndexOf(city);
+        if (index < 0) return;
+
+        selectedCities.RemoveAt(index);
+        SetCityColor(city, normalColor);
+        RebuildPreviewLines();
+        RouteBuilderPanel.Instance?.OnCityRemoved(city, selectedCities);
+    }
+
+    private void AddPreviewLine(CityNode a, CityNode b)
+    {
+        if (linePrefab == null)
+        {
+            if (RoadNetwork.Instance != null) linePrefab = RoadNetwork.Instance.roadLinePrefab;
+            if (linePrefab == null) return;
+        }
+
+        var obj = Instantiate(linePrefab, transform);
+        var lr = obj.GetComponent<LineRenderer>();
+        if (lr == null) { Destroy(obj); return; }
+
+        lr.positionCount = 2;
+        lr.SetPosition(0, a.transform.position);
+        lr.SetPosition(1, b.transform.position);
+        lr.startWidth = lr.endWidth = 0.14f;
+        lr.startColor = lr.endColor = new Color(0.2f, 1f, 0.4f, 0.75f);
+        lr.sortingLayerName = "Roads";
+        lr.sortingOrder = 3;
+
+        previewLines.Add(lr);
+    }
+
+    private LineRenderer closingLine;
+
+    private void RefreshClosingLine()
+    {
+        if (closingLine != null) Destroy(closingLine.gameObject);
+        closingLine = null;
+
+        if (selectedCities.Count < 2) return;
+
+        CityNode first = selectedCities[0];
+        CityNode last = selectedCities[selectedCities.Count - 1];
+        if (first == last) return;
+
+        if (linePrefab == null)
+        {
+            if (RoadNetwork.Instance != null) linePrefab = RoadNetwork.Instance.roadLinePrefab;
+            if (linePrefab == null) return;
+        }
+
+        var obj = Instantiate(linePrefab, transform);
+        closingLine = obj.GetComponent<LineRenderer>();
+        if (closingLine == null) { Destroy(obj); return; }
+
+        closingLine.positionCount = 2;
+        closingLine.SetPosition(0, last.transform.position);
+        closingLine.SetPosition(1, first.transform.position);
+        closingLine.startWidth = closingLine.endWidth = 0.10f;
+        closingLine.startColor = closingLine.endColor = new Color(0.2f, 1f, 0.4f, 0.35f);
+        closingLine.sortingLayerName = "Roads";
+        closingLine.sortingOrder = 3;
+    }
+
+    private void RebuildPreviewLines()
+    {
+        ClearPreviewLines();
+        for (int i = 0; i < selectedCities.Count - 1; i++)
+            AddPreviewLine(selectedCities[i], selectedCities[i + 1]);
+        RefreshClosingLine();
+    }
+
+    private void ClearPreviewLines()
+    {
+        foreach (var lr in previewLines)
+            if (lr != null) Destroy(lr.gameObject);
+        previewLines.Clear();
+
+        if (closingLine != null) Destroy(closingLine.gameObject);
+        closingLine = null;
+    }
+
+    private CityNode GetCityUnderCursor()
+    {
+        if (allCities == null || allCities.Length == 0) return null;
+        if (Mouse.current == null) return null;
+
+        Vector2 screenPos = Mouse.current.position.ReadValue();
+        if (Camera.main == null) return null;
+
+        Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 0f));
+        worldPos.z = 0f;
+
+        CityNode nearest = null;
+        float minDist = clickRadius;
+
+        foreach (var city in allCities)
+        {
+            if (city == null) continue;
+            float dist = Vector2.Distance(worldPos, city.transform.position);
+            if (dist < minDist) { minDist = dist; nearest = city; }
+        }
+
+        return nearest;
+    }
+
+    private void SetCityColor(CityNode city, Color color)
+    {
+        if (city == null) return;
+        var sr = city.GetComponent<SpriteRenderer>();
+        if (sr != null) sr.color = color;
+    }
+
+    private void ResetAllCityColors()
+    {
+        if (allCities == null) return;
+        foreach (var city in allCities)
+            SetCityColor(city, normalColor);
+    }
+
+    public List<CityNode> GetSelectedCities() => new List<CityNode>(selectedCities);
+
+    public void RemoveCityExternal(CityNode city, List<CityNode> newList)
+    {
+        selectedCities = new List<CityNode>(newList);
+        if (!selectedCities.Contains(city))
+            SetCityColor(city, normalColor);
+        RebuildPreviewLines();
+    }
+}
+
+==================================================
+
+Назва файла: DemandManager.cs
+
+using UnityEngine;
+using System.Collections.Generic;
+
+public class DemandManager : MonoBehaviour
+{
+    public static DemandManager Instance { get; private set; }
+
+    private Dictionary<CityNode, int> demandLeft = new Dictionary<CityNode, int>();
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        if (GameTimeManager.Instance != null)
+            GameTimeManager.Instance.OnDayChanged += ResetDemand;
+    }
+
+    private void OnDestroy()
+    {
+        if (GameTimeManager.Instance != null)
+            GameTimeManager.Instance.OnDayChanged -= ResetDemand;
+    }
+
+    private void ResetDemand(GameDate date)
+    {
+        demandLeft.Clear();
+        Debug.Log($"[{date.ToShortString()}] Попит міст скинуто.");
+    }
+
+    public int ConsumeCapacity(CityNode city, int requested)
+    {
+        if (!demandLeft.ContainsKey(city))
+            demandLeft[city] = city.GetDailyDemandLimit();
+
+        int available = demandLeft[city];
+        int consumed = Mathf.Min(available, requested);
+        demandLeft[city] -= consumed;
+        return consumed;
+    }
+
+    public int GetRemainingDemand(CityNode city)
+    {
+        if (!demandLeft.ContainsKey(city))
+            return city.GetDailyDemandLimit();
+        return demandLeft[city];
+    }
+}
+
+==================================================
+
+Назва файла: WageManager.cs
+
+﻿using UnityEngine;
+
+public class WageManager : MonoBehaviour
+{
+    public static WageManager Instance { get; private set; }
+
+    [Header("Ставка зарплати (у.о./місяць)")]
+    public float currentWage = 500f;
+
+    [Header("Прихований параметр (тільки для перегляду)")]
+    [SerializeField] private float expectedWage = 500f;
+
+    public bool IsStrikeActive { get; private set; }
+    public bool IsWarningActive { get; private set; }
+
+    private const float INFLATION_MIN = 0.10f;
+    private const float INFLATION_MAX = 0.15f;
+
+    public System.Action OnWarningTriggered;
+    public System.Action OnStrikeStarted;
+    public System.Action OnStrikeEnded;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnMonthChanged += OnNewMonth;
+            GameTimeManager.Instance.OnYearChanged += OnNewYear;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnMonthChanged -= OnNewMonth;
+            GameTimeManager.Instance.OnYearChanged -= OnNewYear;
+        }
+    }
+
+    private void OnNewMonth(GameDate date)
+    {
+        if (IsStrikeActive) return;
+
+        if (currentWage < expectedWage)
+        {
+            if (!IsWarningActive)
+            {
+                IsWarningActive = true;
+                OnWarningTriggered?.Invoke();
+                Debug.LogWarning($"[{date.ToShortString()}] Водії незадоволені! Є 1 місяць до страйку.");
+            }
+            else
+            {
+                // Другий місяць — страйк
+                IsWarningActive = false;
+                StartStrike();
+            }
+        }
+        else
+        {
+            IsWarningActive = false;
+        }
+    }
+
+    private void OnNewYear(GameDate date)
+    {
+        float growth = Random.Range(INFLATION_MIN, INFLATION_MAX);
+        expectedWage *= (1f + growth);
+        Debug.Log($"[{date.ToShortString()}] Інфляція: очікувана зарплата → {expectedWage:F0} у.о.");
+    }
+
+    public void SetWage(float newWage)
+    {
+        currentWage = Mathf.Max(100f, newWage);
+        if (currentWage >= expectedWage)
+            IsWarningActive = false;
+    }
+
+    public float GetTotalMonthlyWageCost(int vehicleCount)
+        => currentWage * vehicleCount;
+
+    // 0=задоволені, 1=попередження, 2=страйк
+    public int GetSatisfactionLevel()
+    {
+        if (IsStrikeActive) return 2;
+        if (IsWarningActive) return 1;
+        return 0;
+    }
+
+    private void StartStrike()
+    {
+        IsStrikeActive = true;
+        OnStrikeStarted?.Invoke();
+        Debug.LogError("СТРАЙК! Всі ТЗ зупинено.");
+    }
+
+    public bool ResolveStrike(int vehicleCount)
+    {
+        if (!IsStrikeActive) return false;
+        if (currentWage < expectedWage)
+        {
+            Debug.Log("Спочатку підніміть зарплату!");
+            return false;
+        }
+
+        float compensation = GetTotalMonthlyWageCost(vehicleCount) * 2f;
+        if (!FinanceManager.Instance.CanAfford(compensation))
+        {
+            Debug.Log("Недостатньо коштів для компенсації!");
+            return false;
+        }
+
+        FinanceManager.Instance.AddExpense(compensation);
+        IsStrikeActive = false;
+        OnStrikeEnded?.Invoke();
+        Debug.Log($"Страйк завершено. Виплачено: {compensation:F0} у.о.");
+        return true;
+    }
+}
+
+==================================================
+
+Назва файла: RoadData.cs
+
+using UnityEngine;
+
+public enum RoadType { Dirt, Asphalt, Highway }
+
+[CreateAssetMenu(fileName = "NewRoad",
+                 menuName = "Logistics/Road Data")]
+public class RoadData : ScriptableObject
+{
+    [Header("Тип дороги")]
+    public string roadName;
+    public RoadType roadType;
+
+    [Header("Характеристики")]
+    public float speedLimitKmh;
+    public float wearMultiplier;
+    public float buildCost;
+}
+
+==================================================
+
+Назва файла: RoadNetwork.cs
+
+﻿using UnityEngine;
+using System.Collections.Generic;
+
+[System.Serializable]
+public class RoadConnection
+{
+    public CityNode cityA;
+    public CityNode cityB;
+    public RoadData roadData;
+    public LineRenderer lineRenderer;
+}
+
+public class RoadNetwork : MonoBehaviour
+{
+    public static RoadNetwork Instance { get; private set; }
+
+    [Header("Дороги (заповнюються вручну або через BuildRoad)")]
+    public List<RoadConnection> roads = new List<RoadConnection>();
+
+    [Header("Префаб лінії дороги")]
+    public GameObject roadLinePrefab;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        // Намалювати лінії для доріг доданих вручну через Inspector
+        foreach (var road in roads)
+        {
+            if (road.lineRenderer == null)
+                road.lineRenderer = CreateLine(road.cityA, road.cityB, road.roadData);
+        }
+    }
+
+    public bool RoadExists(CityNode a, CityNode b)
+    {
+        return roads.Exists(r =>
+            (r.cityA == a && r.cityB == b) ||
+            (r.cityA == b && r.cityB == a));
+    }
+
+    public RoadConnection GetRoad(CityNode a, CityNode b)
+    {
+        return roads.Find(r =>
+            (r.cityA == a && r.cityB == b) ||
+            (r.cityA == b && r.cityB == a));
+    }
+
+    public bool BuildRoad(CityNode a, CityNode b, RoadData roadData)
+    {
+        if (RoadExists(a, b)) return false;
+
+        var lr = CreateLine(a, b, roadData);
+
+        roads.Add(new RoadConnection
+        {
+            cityA = a,
+            cityB = b,
+            roadData = roadData,
+            lineRenderer = lr
+        });
+
+        FinanceManager.Instance?.RegisterRoadValue(roadData.buildCost);
+        Debug.Log($"Дорога збудована: {a.cityName} ↔ {b.cityName}");
+        return true;
+    }
+
+    private LineRenderer CreateLine(CityNode a, CityNode b, RoadData roadData)
+    {
+        if (roadLinePrefab == null) return null;
+
+        var obj = Instantiate(roadLinePrefab, transform);
+        var lr = obj.GetComponent<LineRenderer>();
+        if (lr == null) return null;
+
+        lr.positionCount = 2;
+        lr.SetPosition(0, a.transform.position);
+        lr.SetPosition(1, b.transform.position);
+        lr.startWidth = lr.endWidth = 0.12f;
+
+        Color color = Color.gray;
+        if (roadData != null && roadData.roadType == RoadType.Highway)
+            color = new Color(0.22f, 0.42f, 0.79f);
+        lr.startColor = lr.endColor = color;
+
+        return lr;
+    }
+
+    public List<CityNode> GetNeighbors(CityNode city)
+    {
+        var result = new List<CityNode>();
+        foreach (var r in roads)
+        {
+            if (r.cityA == city) result.Add(r.cityB);
+            else if (r.cityB == city) result.Add(r.cityA);
+        }
+        return result;
+    }
+
+    public List<CityNode> FindPath(CityNode start, CityNode end)
+    {
+        var queue = new Queue<CityNode>();
+        var visited = new Dictionary<CityNode, CityNode>();
+        queue.Enqueue(start);
+        visited[start] = null;
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (current == end) return BuildPath(visited, start, end);
+
+            foreach (var neighbor in GetNeighbors(current))
+            {
+                if (!visited.ContainsKey(neighbor))
+                {
+                    visited[neighbor] = current;
+                    queue.Enqueue(neighbor);
+                }
+            }
+        }
+        return null;
+    }
+    public void SetRouteHighlight(RouteDefinition route, bool hasVehicle)
+    {
+        if (route == null || !route.IsValid()) return;
+
+        Color color = hasVehicle
+            ? new Color(1.0f, 0.55f, 0.0f) // яскравий оранжевий
+            : new Color(0.6f, 0.35f, 0.0f); // тьмяний оранжевий
+
+        for (int i = 0; i < route.stops.Count; i++)
+        {
+            CityNode a = route.stops[i].city;
+            CityNode b = route.stops[(i + 1) % route.stops.Count].city;
+
+            RoadConnection road = GetRoad(a, b);
+            if (road?.lineRenderer != null)
+            {
+                road.lineRenderer.startColor = color;
+                road.lineRenderer.endColor = color;
+            }
+        }
+    }
+
+    private List<CityNode> BuildPath(Dictionary<CityNode, CityNode> visited,
+                                      CityNode start, CityNode end)
+    {
+        var path = new List<CityNode>();
+        var current = end;
+        while (current != start)
+        {
+            path.Add(current);
+            current = visited[current];
+        }
+        path.Reverse();
+        return path;
+    }
+
+}
+
+==================================================
+
+Назва файла: CityInfoPanel.cs
+
+using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
+
+public class CityInfoPanel : MonoBehaviour
+{
+    public static CityInfoPanel Instance { get; private set; }
+
+    public GameObject panelObj;
+    public TextMeshProUGUI cityNameText;
+    public TextMeshProUGUI demandsListText;
+    public Button btnBuildGarage;
+    public Button btnHireMechanic;
+    public Button btnCreateRoute;
+
+    private CityNode selectedCity;
+
+    private void Awake() { Instance = this; panelObj.SetActive(false); }
+
+    public void OpenPanel(CityNode city)
+    {
+        selectedCity = city;
+        cityNameText.text = city.cityName;
+        panelObj.SetActive(true);
+        RefreshUI();
+    }
+
+    public void ClosePanel() { panelObj.SetActive(false); }
+
+    private void RefreshUI()
+    {
+        btnBuildGarage.interactable = !selectedCity.hasGarage;
+        btnHireMechanic.interactable = selectedCity.hasGarage;
+
+        btnBuildGarage.onClick.RemoveAllListeners();
+        btnBuildGarage.onClick.AddListener(() => { selectedCity.BuildGarage(); RefreshUI(); });
+
+        btnHireMechanic.onClick.RemoveAllListeners();
+        btnHireMechanic.onClick.AddListener(() => { selectedCity.HireMechanic(); RefreshUI(); });
+
+        btnCreateRoute.onClick.RemoveAllListeners();
+        btnCreateRoute.onClick.AddListener(() => {
+            ClosePanel();
+            RouteBuilderPanel.Instance.OpenPanel();
+        });
+
+        // Виведення списку попиту
+        string ds = "";
+        foreach (var d in selectedCity.demands)
+            ds += $"В {d.destination.cityName}: {d.currentUnits}/{d.maxUnits}\n";
+        demandsListText.text = ds;
+    }
+}
+
+==================================================
+
+Назва файла: FleetPanelController.cs
+
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class FleetPanelController : MonoBehaviour
+{
+    [Header("UI Elements")]
+    public GameObject fleetPanel;
+    public Transform contentTransform;
+    public GameObject vehicleRowPrefab;
+
+    [Header("Кнопки відкриття/закриття")]
+    public Button btnToggleFleet;
+    public Button btnCloseFleet;
+
+    private List<VehicleController> trackedVehicles = new List<VehicleController>();
+    private List<GameObject> activeRows = new List<GameObject>();
+
+    private bool isPanelOpen = false;
+    private float refreshTimer = 0f;
+
+    private void Start()
+    {
+        fleetPanel.SetActive(false);
+        if (btnToggleFleet != null) btnToggleFleet.onClick.AddListener(TogglePanel);
+        if (btnCloseFleet != null) btnCloseFleet.onClick.AddListener(ClosePanel);
+    }
+
+    public void RegisterVehicle(VehicleController vc)
+    {
+        if (!trackedVehicles.Contains(vc))
+        {
+            trackedVehicles.Add(vc);
+            if (isPanelOpen) UpdateRows();
+        }
+    }
+
+    private void TogglePanel()
+    {
+        isPanelOpen = !isPanelOpen;
+        fleetPanel.SetActive(isPanelOpen);
+        if (isPanelOpen) UpdateRows();
+    }
+
+    private void ClosePanel()
+    {
+        isPanelOpen = false;
+        fleetPanel.SetActive(false);
+    }
+
+    private void Update()
+    {
+        if (!isPanelOpen) return;
+        refreshTimer += Time.deltaTime;
+        if (refreshTimer >= 0.5f)
+        {
+            refreshTimer = 0f;
+            UpdateRows();
+        }
+    }
+
+    private void UpdateRows()
+    {
+        trackedVehicles.RemoveAll(v => v == null);
+
+        // Синхронізація кількості рядків
+        while (activeRows.Count < trackedVehicles.Count)
+        {
+            GameObject newRow = Instantiate(vehicleRowPrefab, contentTransform);
+            activeRows.Add(newRow);
+        }
+        while (activeRows.Count > trackedVehicles.Count)
+        {
+            GameObject rowToRemove = activeRows[activeRows.Count - 1];
+            activeRows.RemoveAt(activeRows.Count - 1);
+            Destroy(rowToRemove);
+        }
+
+        // Оновлюємо дані у рядках
+        for (int i = 0; i < trackedVehicles.Count; i++)
+        {
+            VehicleController v = trackedVehicles[i];
+            GameObject row = activeRows[i];
+
+            var nameText = row.transform.Find("Name_Text")?.GetComponent<TextMeshProUGUI>();
+            if (nameText) nameText.text = v.vehicleData != null ? v.vehicleData.vehicleName : "Транспорт";
+
+            var statusText = row.transform.Find("Status_Text")?.GetComponent<TextMeshProUGUI>();
+            if (statusText) statusText.text = v.status.ToString();
+
+            var condBar = row.transform.Find("Condition_Bar")?.GetComponent<Image>();
+            if (condBar) condBar.fillAmount = v.condition / 100f;
+
+            var statsText = row.transform.Find("Stats_Text")?.GetComponent<TextMeshProUGUI>();
+            if (statsText) statsText.text = $"Завантажено: {v.currentLoad}";
+
+            var repairBtn = row.transform.Find("Repair_Button")?.GetComponent<Button>();
+            if (repairBtn)
+            {
+                repairBtn.onClick.RemoveAllListeners();
+                repairBtn.onClick.AddListener(() => v.RequestRepair());
+                repairBtn.interactable = v.condition < 100f && v.status != VehicleStatus.Repairing;
+            }
+
+            // Логіка оновлення Dropdown списку маршрутів
+            var routeDropdown = row.transform.Find("Route_Dropdown")?.GetComponent<TMP_Dropdown>();
+            if (routeDropdown)
+            {
+                UpdateRouteDropdown(routeDropdown, v);
+            }
+        }
+    }
+
+    private void UpdateRouteDropdown(TMP_Dropdown dropdown, VehicleController v)
+    {
+        RouteDefinition[] allRoutes = FindObjectsByType<RouteDefinition>(FindObjectsSortMode.None);
+        List<string> options = new List<string> { "Немає маршруту" };
+        int currentIndex = 0;
+
+        for (int i = 0; i < allRoutes.Length; i++)
+        {
+            var route = allRoutes[i];
+            string routeDesc = $"{route.routeName} (Зупинок: {route.stops.Count})";
+            options.Add(routeDesc);
+
+            if (v.activeRoute == route)
+                currentIndex = i + 1; // +1 бо 0 резервується під "Немає маршруту"
+        }
+
+        // Оновлюємо список лише якщо маршрути змінились, щоб не збивати фокус у меню
+        if (dropdown.options.Count != options.Count || dropdown.value != currentIndex)
+        {
+            dropdown.ClearOptions();
+            dropdown.AddOptions(options);
+            dropdown.SetValueWithoutNotify(currentIndex);
+
+            dropdown.onValueChanged.RemoveAllListeners();
+            dropdown.onValueChanged.AddListener((index) => {
+                v.StopRoute(); // Завжди зупиняємо старий
+                if (index > 0)
+                {
+                    RouteDefinition selectedRoute = allRoutes[index - 1];
+                    v.StartRoute(selectedRoute); // Стартуємо новий, якщо обрано
+                }
+            });
+        }
+    }
+}
+
+==================================================
+
+Назва файла: HUDController.cs
+
+﻿using UnityEngine;
+using TMPro;
+using UnityEngine.UI;
+
+public class HUDController : MonoBehaviour
+{
+    [Header("Текстові поля")]
+    public TextMeshProUGUI balanceText;
+    public TextMeshProUGUI dateText;
+
+    [Header("Кнопки швидкості")]
+    public Button btnPause;
+    public Button btn1x;
+    public Button btn2x;
+    public Button btn4x;
+
+    [Header("Кольори кнопок")]
+    public Color colorActive = new Color(1f, 0.6f, 0f, 1f);
+    public Color colorInactive = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+
+    private void Start()
+    {
+        // Підписати кнопки
+        btnPause.onClick.AddListener(() => SetSpeed(0));
+        btn1x.onClick.AddListener(() => SetSpeed(1));
+        btn2x.onClick.AddListener(() => SetSpeed(2));
+        btn4x.onClick.AddListener(() => SetSpeed(3));
+
+        // Підписатись на зміну часу
+        if (GameTimeManager.Instance != null)
+            GameTimeManager.Instance.OnHourChanged += OnHourChanged;
+
+        // Початкові значення
+        UpdateBalance();
+        UpdateSpeedButtons();
+    }
+
+    private void OnDestroy()
+    {
+        if (GameTimeManager.Instance != null)
+            GameTimeManager.Instance.OnHourChanged -= OnHourChanged;
+    }
+
+    private void Update()
+    {
+        // Баланс оновлюємо кожен кадр бо змінюється часто
+        UpdateBalance();
+    }
+
+    private void OnHourChanged(GameDate date)
+    {
+        if (dateText != null)
+            dateText.text = date.ToString();
+    }
+
+    private void UpdateBalance()
+    {
+        if (balanceText == null || FinanceManager.Instance == null) return;
+
+        float balance = FinanceManager.Instance.balance;
+        balanceText.text = FormatMoney(balance) + " у.о.";
+        balanceText.color = balance >= 0
+            ? new Color(1f, 0.85f, 0f)   // золотий
+            : new Color(1f, 0.2f, 0.2f); // червоний якщо від'ємний
+    }
+
+    private void SetSpeed(int speed)
+    {
+        GameTimeManager.Instance?.SetSpeed(speed);
+        UpdateSpeedButtons();
+    }
+
+    private void UpdateSpeedButtons()
+    {
+        if (GameTimeManager.Instance == null) return;
+        int current = GameTimeManager.Instance.timeSpeed;
+
+        SetButtonColor(btnPause, current == 0);
+        SetButtonColor(btn1x, current == 1);
+        SetButtonColor(btn2x, current == 2);
+        SetButtonColor(btn4x, current == 4);
+    }
+
+    private void SetButtonColor(Button btn, bool isActive)
+    {
+        if (btn == null) return;
+        var img = btn.GetComponent<Image>();
+        if (img != null)
+            img.color = isActive ? colorActive : colorInactive;
+    }
+
+    // Форматування числа: 120000 → "120 000"
+    private string FormatMoney(float value)
+    {
+        bool negative = value < 0;
+        string s = Mathf.Abs(value).ToString("F0");
+
+        // Додати пробіли як роздільники тисяч
+        string result = "";
+        int count = 0;
+        for (int i = s.Length - 1; i >= 0; i--)
+        {
+            if (count > 0 && count % 3 == 0)
+                result = " " + result;
+            result = s[i] + result;
+            count++;
+        }
+
+        return negative ? "-" + result : result;
+    }
+}
+
+==================================================
+
+Назва файла: NotificationController.cs
+
+﻿using UnityEngine;
+using TMPro;
+using DG.Tweening;
+
+public class NotificationController : MonoBehaviour
+{
+    public static NotificationController Instance { get; private set; }
+
+    [Header("Елементи UI")]
+    public TextMeshProUGUI notificationText;
+    public CanvasGroup canvasGroup;
+
+    private Sequence currentSequence;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+
+        if (canvasGroup != null)
+            canvasGroup.alpha = 0f;
+    }
+
+    private void Start()
+    {
+        // Підписатись на страйк
+        if (WageManager.Instance != null)
+        {
+            WageManager.Instance.OnWarningTriggered += OnWageWarning;
+            WageManager.Instance.OnStrikeStarted += OnStrike;
+            WageManager.Instance.OnStrikeEnded += OnStrikeEnded;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (WageManager.Instance != null)
+        {
+            WageManager.Instance.OnWarningTriggered -= OnWageWarning;
+            WageManager.Instance.OnStrikeStarted -= OnStrike;
+            WageManager.Instance.OnStrikeEnded -= OnStrikeEnded;
+        }
+    }
+
+    // Показати сповіщення
+    public void Show(string message, Color color, float duration = 4f)
+    {
+        if (notificationText == null || canvasGroup == null) return;
+
+        currentSequence?.Kill();
+
+        notificationText.text = message;
+        notificationText.color = color;
+
+        currentSequence = DOTween.Sequence();
+        currentSequence.Append(canvasGroup.DOFade(1f, 0.3f));
+        currentSequence.AppendInterval(duration);
+        currentSequence.Append(canvasGroup.DOFade(0f, 0.5f));
+    }
+
+    private void OnWageWarning()
+    {
+        Show("⚠ Водії незадоволені зарплатою!\nЄ 1 місяць до страйку.",
+             new Color(1f, 0.7f, 0f), 6f);
+    }
+
+    private void OnStrike()
+    {
+        Show("🚫 СТРАЙК! Всі транспортні засоби зупинені.",
+             new Color(1f, 0.2f, 0.2f), 8f);
+    }
+
+    private void OnStrikeEnded()
+    {
+        Show("✅ Страйк завершено. Маршрути відновлено.",
+             new Color(0.2f, 1f, 0.4f), 4f);
+    }
+
+    // Виклик з будь-якого місця
+    public static void ShowMessage(string msg, Color color, float duration = 4f)
+    {
+        Instance?.Show(msg, color, duration);
+    }
+}
+
+==================================================
+
+Назва файла: RouteBuilderPanel.cs
+
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.InputSystem;
+using TMPro;
+using System.Collections.Generic;
+
+public class RouteBuilderPanel : MonoBehaviour
+{
+    public static RouteBuilderPanel Instance { get; private set; }
+
+    // ─── Inspector ───────────────────────────────────────────
+
+    [Header("Кореневий об'єкт панелі")]
+    public GameObject panelRoot;
+
+    [Header("Контейнер рядків міст (з Vertical Layout Group)")]
+    public Transform stopsListParent;
+
+    [Header("Префаб рядка міста у списку")]
+    public GameObject stopRowPrefab;
+
+    [Header("Текст відстані")]
+    public TextMeshProUGUI distanceText;
+
+    [Header("Текст попередження (немає дороги тощо)")]
+    public TextMeshProUGUI warningText;
+
+    [Header("Кнопки")]
+    public Button btnNewRoute;
+    public Button btnConfirm;
+    public Button btnCancel;
+
+    [Header("Префаб маршруту (RouteDefinition + RouteVisualizer)")]
+    [Tooltip("Якщо пусто — створюється без підсвітки")]
+    public GameObject routePrefab;
+
+    [Header("Батько для нових маршрутів у Hierarchy")]
+    public Transform routesParent;
+
+    // ─── Константи ───────────────────────────────────────────
+    private const float KM_PER_UNIT = 50f;
+
+    // ─── Стан ────────────────────────────────────────────────
+    private List<CityNode> currentStops = new List<CityNode>();
+    private List<GameObject> stopRows = new List<GameObject>();
+
+    // ─── Lifecycle ───────────────────────────────────────────
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        btnNewRoute?.onClick.AddListener(OpenPanel);
+        btnConfirm?.onClick.AddListener(OnConfirm);
+        btnCancel?.onClick.AddListener(OnCancel);
+        panelRoot?.SetActive(false);
+        SetWarning("");
+    }
+
+    private void Update()
+    {
+        // Backspace — видалити останнє місто
+        if (panelRoot != null && panelRoot.activeSelf)
+            if (Keyboard.current != null && Keyboard.current.backspaceKey.wasPressedThisFrame)
+                RemoveLastCity();
+    }
+
+    // ─── Відкрити / закрити ──────────────────────────────────
+
+    public void OpenPanel()
+    {
+        currentStops.Clear();
+        ClearStopRows();
+        SetWarning("");
+        UpdateDistanceText();
+        panelRoot?.SetActive(true);
+        MapClickHandler.Instance?.StartBuilding();
+    }
+
+    private void ClosePanel()
+    {
+        panelRoot?.SetActive(false);
+        MapClickHandler.Instance?.StopBuilding();
+    }
+
+    // ─── Callbacks від MapClickHandler ───────────────────────
+
+    public void OnCityAdded(CityNode city, List<CityNode> current)
+    {
+        currentStops = new List<CityNode>(current);
+        RebuildStopRows();
+        UpdateDistanceText();
+        ValidateRoute();
+    }
+
+    public void OnCityRemoved(CityNode city, List<CityNode> current)
+    {
+        currentStops = new List<CityNode>(current);
+        RebuildStopRows();
+        UpdateDistanceText();
+        ValidateRoute();
+    }
+
+    // ─── Видалення міст ──────────────────────────────────────
+
+    private void RemoveLastCity()
+    {
+        if (currentStops.Count == 0) return;
+        CityNode last = currentStops[currentStops.Count - 1];
+        currentStops.RemoveAt(currentStops.Count - 1);
+        RebuildStopRows();
+        UpdateDistanceText();
+        ValidateRoute();
+        // Повідомити MapClickHandler
+        MapClickHandler.Instance?.RemoveCityExternal(last, currentStops);
+    }
+
+    private void RemoveCityAt(int index)
+    {
+        if (index < 0 || index >= currentStops.Count) return;
+        CityNode city = currentStops[index];
+        currentStops.RemoveAt(index);
+        RebuildStopRows();
+        UpdateDistanceText();
+        ValidateRoute();
+        MapClickHandler.Instance?.RemoveCityExternal(city, currentStops);
+    }
+
+    // ─── Список рядків зупинок ───────────────────────────────
+
+    private void RebuildStopRows()
+    {
+        ClearStopRows();
+
+        for (int i = 0; i < currentStops.Count; i++)
+        {
+            int captured = i;
+            CityNode city = currentStops[i];
+
+            GameObject row;
+
+            if (stopRowPrefab != null && stopsListParent != null)
+            {
+                row = Instantiate(stopRowPrefab, stopsListParent);
+            }
+            else
+            {
+                // Якщо prefab не призначений — створюємо мінімальний рядок
+                row = new GameObject($"StopRow_{i}", typeof(RectTransform));
+                if (stopsListParent != null)
+                    row.transform.SetParent(stopsListParent, false);
+                var rt = row.GetComponent<RectTransform>();
+                rt.sizeDelta = new Vector2(0, 28);
+
+                // Текст назви міста
+                var textObj = new GameObject("Label", typeof(RectTransform));
+                textObj.transform.SetParent(row.transform, false);
+                var textRT = textObj.GetComponent<RectTransform>();
+                textRT.anchorMin = Vector2.zero;
+                textRT.anchorMax = Vector2.one;
+                textRT.offsetMin = new Vector2(4, 0);
+                textRT.offsetMax = new Vector2(-36, 0);
+                var tmp = textObj.AddComponent<TextMeshProUGUI>();
+                tmp.fontSize = 13;
+                tmp.color = Color.white;
+                tmp.alignment = TextAlignmentOptions.MidlineLeft;
+
+                // Кнопка X
+                var btnObj = new GameObject("BtnRemove", typeof(RectTransform));
+                btnObj.transform.SetParent(row.transform, false);
+                var btnRT = btnObj.GetComponent<RectTransform>();
+                btnRT.anchorMin = new Vector2(1, 0);
+                btnRT.anchorMax = new Vector2(1, 1);
+                btnRT.offsetMin = new Vector2(-32, 2);
+                btnRT.offsetMax = new Vector2(-2, -2);
+                var img = btnObj.AddComponent<Image>();
+                img.color = new Color(0.7f, 0.15f, 0.15f, 0.85f);
+                var btn = btnObj.AddComponent<Button>();
+                var xTextObj = new GameObject("X", typeof(RectTransform));
+                xTextObj.transform.SetParent(btnObj.transform, false);
+                var xRT = xTextObj.GetComponent<RectTransform>();
+                xRT.anchorMin = Vector2.zero; xRT.anchorMax = Vector2.one;
+                xRT.offsetMin = xRT.offsetMax = Vector2.zero;
+                var xTmp = xTextObj.AddComponent<TextMeshProUGUI>();
+                xTmp.text = "X";
+                xTmp.fontSize = 12;
+                xTmp.alignment = TextAlignmentOptions.Center;
+                xTmp.color = Color.white;
+                btn.onClick.AddListener(() => RemoveCityAt(captured));
+            }
+
+            // Заповнити текст якщо є prefab зі стандартною структурою
+            var labelTMP = row.transform.Find("Label")?.GetComponent<TextMeshProUGUI>();
+            if (labelTMP == null) labelTMP = row.GetComponentInChildren<TextMeshProUGUI>();
+            if (labelTMP != null)
+                labelTMP.text = $"{i + 1}. {GetTypeTag(city.cityType)} {city.cityName}";
+
+            // Кнопка X у prefab (якщо є)
+            var removeBtn = row.transform.Find("BtnRemove")?.GetComponent<Button>();
+            if (removeBtn != null)
+            {
+                removeBtn.onClick.RemoveAllListeners();
+                removeBtn.onClick.AddListener(() => RemoveCityAt(captured));
+            }
+
+            stopRows.Add(row);
+        }
+
+        // Рядок замикання кільця (лише текст, не кнопка)
+        if (currentStops.Count >= 2)
+        {
+            var closingRow = CreateLabelRow($"(коло) -> {currentStops[0].cityName}",
+                                            new Color(0.5f, 0.9f, 0.5f, 0.7f));
+            stopRows.Add(closingRow);
+        }
+    }
+
+    private GameObject CreateLabelRow(string text, Color color)
+    {
+        var row = new GameObject("ClosingRow", typeof(RectTransform));
+        if (stopsListParent != null)
+            row.transform.SetParent(stopsListParent, false);
+        var rt = row.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(0, 22);
+
+        var textObj = new GameObject("Label", typeof(RectTransform));
+        textObj.transform.SetParent(row.transform, false);
+        var tRT = textObj.GetComponent<RectTransform>();
+        tRT.anchorMin = Vector2.zero; tRT.anchorMax = Vector2.one;
+        tRT.offsetMin = new Vector2(4, 0); tRT.offsetMax = Vector2.zero;
+        var tmp = textObj.AddComponent<TextMeshProUGUI>();
+        tmp.text = text;
+        tmp.fontSize = 11;
+        tmp.color = color;
+        tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        return row;
+    }
+
+    private void ClearStopRows()
+    {
+        foreach (var r in stopRows)
+            if (r != null) Destroy(r);
+        stopRows.Clear();
+    }
+
+    // ─── Відстань ────────────────────────────────────────────
+
+    private void UpdateDistanceText()
+    {
+        if (distanceText == null) return;
+
+        if (currentStops.Count < 2)
+        {
+            distanceText.text = "Відстань: —";
+            return;
+        }
+
+        float totalKm = 0f;
+        for (int i = 0; i < currentStops.Count; i++)
+        {
+            CityNode a = currentStops[i];
+            CityNode b = currentStops[(i + 1) % currentStops.Count];
+            totalKm += Vector3.Distance(a.transform.position, b.transform.position) * KM_PER_UNIT;
+        }
+        distanceText.text = $"Відстань кола: {totalKm:F0} км";
+    }
+
+    // ─── Валідація ───────────────────────────────────────────
+
+    private void ValidateRoute()
+    {
+        if (currentStops.Count < 2) { SetWarning(""); return; }
+
+        string missing = FindMissingRoad();
+        if (missing != null)
+            SetWarning($"Немає дороги: {missing}");
+        else
+            SetWarning("");
+    }
+
+    private string FindMissingRoad()
+    {
+        if (RoadNetwork.Instance == null) return null;
+        for (int i = 0; i < currentStops.Count; i++)
+        {
+            CityNode a = currentStops[i];
+            CityNode b = currentStops[(i + 1) % currentStops.Count];
+            if (!RoadNetwork.Instance.RoadExists(a, b))
+                return $"{a.cityName} - {b.cityName}";
+        }
+        return null;
+    }
+
+    // ─── Confirm / Cancel ────────────────────────────────────
+
+    private void OnConfirm()
+    {
+        if (currentStops.Count < 2)
+        {
+            SetWarning("Оберіть мінімум 2 міста.");
+            return;
+        }
+        if (FindMissingRoad() != null)
+        {
+            SetWarning("Спочатку побудуйте відсутні дороги.");
+            return;
+        }
+
+        RouteDefinition route = CreateRouteDefinition();
+        if (route == null) { SetWarning("Помилка створення маршруту."); return; }
+
+        Debug.Log($"[RouteBuilderPanel] Маршрут '{route.routeName}' створено. Призначте транспорт через панель маршрутів.");
+
+        // Повідомити панель маршрутів якщо є
+        RoutesPanel.Instance?.OnRouteCreated(route);
+
+        ClosePanel();
+    }
+
+    private void OnCancel() => ClosePanel();
+
+    // ─── Створення RouteDefinition ───────────────────────────
+
+    private RouteDefinition CreateRouteDefinition()
+    {
+        GameObject obj;
+
+        if (routePrefab != null)
+            obj = Instantiate(routePrefab, routesParent != null ? routesParent : transform);
+        else
+        {
+            obj = new GameObject("Route_New");
+            if (routesParent != null) obj.transform.SetParent(routesParent);
+            obj.AddComponent<RouteDefinition>();
+        }
+
+        var route = obj.GetComponent<RouteDefinition>();
+        if (route == null) { Destroy(obj); return null; }
+
+        string first = currentStops[0].cityName;
+        string last = currentStops[currentStops.Count - 1].cityName;
+        route.routeName = first == last ? $"{first} (коло)" : $"{first} - {last}";
+        obj.name = $"Route_{first}_{last}";
+
+        route.stops.Clear();
+        foreach (var city in currentStops)
+            route.stops.Add(new RouteStop { city = city });
+
+        return route;
+    }
+
+    // ─── Допоміжні ───────────────────────────────────────────
+
+    private void SetWarning(string msg)
+    {
+        if (warningText == null) return;
+        warningText.text = msg;
+        warningText.gameObject.SetActive(!string.IsNullOrEmpty(msg));
+    }
+
+    private string GetTypeTag(CityType type)
+    {
+        switch (type)
+        {
+            case CityType.Industrial: return "[Пром]";
+            case CityType.Trade: return "[Торг]";
+            case CityType.Tourist: return "[Тур]";
+            default: return "";
+        }
+    }
+}
+
+==================================================
+
+Назва файла: RoutesPanel.cs
+
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using System.Collections.Generic;
+
+
+public class RoutesPanel : MonoBehaviour
+{
+    public static RoutesPanel Instance { get; private set; }
+
+    [Header("Кореневий об'єкт панелі")]
+    public GameObject panelRoot;
+
+    [Header("Контейнер рядків маршрутів")]
+    public Transform routesContent;
+
+    [Header("Префаб рядка маршруту")]
+    [Tooltip("Якщо пусто — рядки генеруються динамічно")]
+    public GameObject routeRowPrefab;
+
+    [Header("Кнопки")]
+    public Button btnToggle;
+    public Button btnClose;
+
+    // Всі відомі маршрути (додаються при створенні або знаходяться на старті)
+    private List<RouteDefinition> routes = new List<RouteDefinition>();
+    private List<GameObject>      rows   = new List<GameObject>();
+
+    // ─── Lifecycle ───────────────────────────────────────────
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        btnToggle?.onClick.AddListener(TogglePanel);
+        btnClose ?.onClick.AddListener(TogglePanel);
+        panelRoot?.SetActive(false);
+
+        // Знайти вже існуючі маршрути на сцені
+        var existing = FindObjectsByType<RouteDefinition>(FindObjectsSortMode.None);
+        foreach (var r in existing)
+            if (!routes.Contains(r)) routes.Add(r);
+    }
+
+    // ─── Відкрити / закрити ──────────────────────────────────
+
+    private void TogglePanel()
+    {
+        bool next = !(panelRoot != null && panelRoot.activeSelf);
+        panelRoot?.SetActive(next);
+        if (next) RebuildRows();
+    }
+
+    // ─── Додавання маршруту ───────────────────────────────────
+
+    public void OnRouteCreated(RouteDefinition route)
+    {
+        if (!routes.Contains(route))
+            routes.Add(route);
+
+        // Якщо панель відкрита — оновити список
+        if (panelRoot != null && panelRoot.activeSelf)
+            RebuildRows();
+    }
+
+    // ─── Побудова рядків ─────────────────────────────────────
+
+    private void RebuildRows()
+    {
+        // Очистити старі рядки
+        foreach (var r in rows) if (r != null) Destroy(r);
+        rows.Clear();
+
+        // Прибрати null-записи (видалені маршрути)
+        routes.RemoveAll(r => r == null);
+
+        if (routes.Count == 0)
+        {
+            var empty = CreateLabelRow("Маршрутів ще немає.\nСтворіть перший через кнопку \"Новий маршрут\".",
+                                       new Color(0.6f, 0.6f, 0.6f));
+            rows.Add(empty);
+            return;
+        }
+
+        foreach (var route in routes)
+        {
+            var captured = route;
+            GameObject row = CreateRouteRow(route, captured);
+            rows.Add(row);
+        }
+    }
+
+    private GameObject CreateRouteRow(RouteDefinition route, RouteDefinition captured)
+    {
+        if (routeRowPrefab != null && routesContent != null)
+            return CreateRowFromPrefab(route, captured);
+        else
+            return CreateRowDynamic(route, captured);
+    }
+
+    // ─── Рядок з prefab ──────────────────────────────────────
+
+    private GameObject CreateRowFromPrefab(RouteDefinition route, RouteDefinition captured)
+    {
+        var row = Instantiate(routeRowPrefab, routesContent);
+
+        // Назва маршруту
+        var nameTMP = row.transform.Find("Route_Name")?.GetComponent<TextMeshProUGUI>();
+        if (nameTMP != null)
+            nameTMP.text = route.routeName;
+
+        // Статус: кількість ТЗ і статус
+        var statusTMP = row.transform.Find("Route_Status")?.GetComponent<TextMeshProUGUI>();
+        if (statusTMP != null)
+            statusTMP.text = GetRouteStatusText(route);
+
+        // Кнопка "Призначити ТЗ"
+        var btnAssign = row.transform.Find("Btn_Assign")?.GetComponent<Button>();
+        if (btnAssign != null)
+            btnAssign.onClick.AddListener(() => OpenAssignPanel(captured));
+
+        // Кнопка "Зупинити"
+        var btnStop = row.transform.Find("Btn_Stop")?.GetComponent<Button>();
+        if (btnStop != null)
+            btnStop.onClick.AddListener(() => StopRoute(captured, row));
+
+        return row;
+    }
+
+    // ─── Динамічний рядок (без prefab) ───────────────────────
+
+    private GameObject CreateRowDynamic(RouteDefinition route, RouteDefinition captured)
+    {
+        // Контейнер рядка
+        var row = new GameObject($"RouteRow_{route.routeName}", typeof(RectTransform));
+        if (routesContent != null) row.transform.SetParent(routesContent, false);
+        var rowRT = row.GetComponent<RectTransform>();
+        rowRT.sizeDelta = new Vector2(0, 70);
+
+        // Фон
+        var bg = row.AddComponent<Image>();
+        bg.color = new Color(0.12f, 0.15f, 0.12f, 0.9f);
+
+        // ── Назва маршруту ──
+        var nameObj = new GameObject("Route_Name", typeof(RectTransform));
+        nameObj.transform.SetParent(row.transform, false);
+        var nameRT = nameObj.GetComponent<RectTransform>();
+        nameRT.anchorMin = new Vector2(0, 0.6f);
+        nameRT.anchorMax = new Vector2(1, 1f);
+        nameRT.offsetMin = new Vector2(8, 0);
+        nameRT.offsetMax = new Vector2(-8, -4);
+        var nameTMP = nameObj.AddComponent<TextMeshProUGUI>();
+        nameTMP.text = route.routeName;
+        nameTMP.fontSize = 13;
+        nameTMP.fontStyle = FontStyles.Bold;
+        nameTMP.color = Color.white;
+        nameTMP.alignment = TextAlignmentOptions.MidlineLeft;
+
+        // ── Статус / зупинки ──
+        var statusObj = new GameObject("Route_Status", typeof(RectTransform));
+        statusObj.transform.SetParent(row.transform, false);
+        var statusRT = statusObj.GetComponent<RectTransform>();
+        statusRT.anchorMin = new Vector2(0, 0.3f);
+        statusRT.anchorMax = new Vector2(1, 0.6f);
+        statusRT.offsetMin = new Vector2(8, 0);
+        statusRT.offsetMax = new Vector2(-8, 0);
+        var statusTMP = statusObj.AddComponent<TextMeshProUGUI>();
+        statusTMP.text = GetRouteStatusText(route);
+        statusTMP.fontSize = 11;
+        statusTMP.color = new Color(0.75f, 0.75f, 0.75f);
+        statusTMP.alignment = TextAlignmentOptions.MidlineLeft;
+
+        // ── Кнопка "Призначити ТЗ" ──
+        var btnAssignObj = CreateSmallButton(row.transform,
+            anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0.48f, 0.32f),
+            offset: new Vector4(6, 3, -3, -3),
+            label: "Призначити ТЗ",
+            color: new Color(0.15f, 0.45f, 0.15f));
+        btnAssignObj.GetComponent<Button>().onClick.AddListener(() => OpenAssignPanel(captured));
+
+        // ── Кнопка "Зупинити" ──
+        var btnStopObj = CreateSmallButton(row.transform,
+            anchorMin: new Vector2(0.52f, 0f), anchorMax: new Vector2(1f, 0.32f),
+            offset: new Vector4(3, 3, -6, -3),
+            label: "Зупинити",
+            color: new Color(0.45f, 0.12f, 0.12f));
+        btnStopObj.GetComponent<Button>().onClick.AddListener(() => StopRoute(captured, row));
+
+        // Розділювач
+        var divObj = new GameObject("Divider", typeof(RectTransform));
+        divObj.transform.SetParent(row.transform, false);
+        var divRT = divObj.GetComponent<RectTransform>();
+        divRT.anchorMin = new Vector2(0, 0);
+        divRT.anchorMax = new Vector2(1, 0);
+        divRT.sizeDelta = new Vector2(0, 1);
+        divRT.anchoredPosition = new Vector2(0, -0.5f);
+        var divImg = divObj.AddComponent<Image>();
+        divImg.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+
+        return row;
+    }
+
+    private GameObject CreateSmallButton(Transform parent,
+        Vector2 anchorMin, Vector2 anchorMax, Vector4 offset,
+        string label, Color color)
+    {
+        var obj = new GameObject("Btn", typeof(RectTransform));
+        obj.transform.SetParent(parent, false);
+        var rt = obj.GetComponent<RectTransform>();
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.offsetMin = new Vector2(offset.x, offset.y);
+        rt.offsetMax = new Vector2(offset.z, offset.w);
+        var img = obj.AddComponent<Image>();
+        img.color = color;
+        var btn = obj.AddComponent<Button>();
+        var cb = btn.colors;
+        cb.highlightedColor = new Color(color.r + 0.15f, color.g + 0.15f, color.b + 0.15f);
+        btn.colors = cb;
+
+        var textObj = new GameObject("Text", typeof(RectTransform));
+        textObj.transform.SetParent(obj.transform, false);
+        var tRT = textObj.GetComponent<RectTransform>();
+        tRT.anchorMin = Vector2.zero; tRT.anchorMax = Vector2.one;
+        tRT.offsetMin = tRT.offsetMax = Vector2.zero;
+        var tmp = textObj.AddComponent<TextMeshProUGUI>();
+        tmp.text = label;
+        tmp.fontSize = 10;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+
+        return obj;
+    }
+
+    // ─── Дії ─────────────────────────────────────────────────
+    private void OpenAssignPanel(RouteDefinition route)
+    {
+        // Знайти вільні ТЗ
+        var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
+        List<VehicleController> idle = new List<VehicleController>();
+        foreach (var v in all)
+            if (v.status == VehicleStatus.Idle) idle.Add(v);
+
+        if (idle.Count == 0)
+        {
+            Debug.LogWarning("[RoutesPanel] Немає вільних ТЗ для призначення.");
+            return;
+        }
+
+        // Якщо є тільки один вільний ТЗ — призначаємо одразу
+        if (idle.Count == 1)
+        {
+            AssignVehicle(idle[0], route);
+            return;
+        }
+
+        // Якщо є кілька — призначити перший і залогувати варіанти
+        // (повноцінний попап — наступний крок)
+        Debug.Log($"[RoutesPanel] Знайдено {idle.Count} вільних ТЗ. Призначається перший: {idle[0].vehicleData.vehicleName}");
+        AssignVehicle(idle[0], route);
+    }
+
+    private void AssignVehicle(VehicleController vehicle, RouteDefinition route)
+    {
+        bool ok = vehicle.StartRoute(route);
+        if (ok)
+        {
+            Debug.Log($"[RoutesPanel] {vehicle.vehicleData.vehicleName} призначено на '{route.routeName}'");
+            RebuildRows(); // оновити статус у списку
+        }
+        else
+        {
+            Debug.LogWarning($"[RoutesPanel] Не вдалось запустити маршрут для {vehicle.vehicleData.vehicleName}");
+        }
+    }
+
+    private void StopRoute(RouteDefinition route, GameObject row)
+    {
+        // Знайти всі ТЗ на цьому маршруті і зупинити
+        var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
+        foreach (var v in all)
+            if (v.activeRoute == route) v.StopRoute();
+
+        routes.Remove(route);
+        if (route != null) Destroy(route.gameObject);
+        if (row != null) { rows.Remove(row); Destroy(row); }
+
+        Debug.Log($"[RoutesPanel] Маршрут зупинено і видалено.");
+    }
+
+    // ─── Допоміжні ───────────────────────────────────────────
+
+    private string GetRouteStatusText(RouteDefinition route)
+    {
+        // Підрахувати скільки ТЗ на цьому маршруті
+        var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
+        int count = 0;
+        foreach (var v in all)
+            if (v.activeRoute == route) count++;
+
+        // Зупинки
+        string stops = "";
+        if (route.stops != null && route.stops.Count > 0)
+        {
+            var names = new List<string>();
+            foreach (var s in route.stops)
+                if (s?.city != null) names.Add(s.city.cityName);
+            stops = string.Join(" - ", names);
+        }
+
+        string vehicleInfo = count == 0
+            ? "<color=#FF8888>Без транспорту</color>"
+            : $"<color=#88FF88>ТЗ: {count}</color>";
+
+        return $"{stops}\n{vehicleInfo}";
+    }
+
+    private GameObject CreateLabelRow(string text, Color color)
+    {
+        var row = new GameObject("EmptyLabel", typeof(RectTransform));
+        if (routesContent != null) row.transform.SetParent(routesContent, false);
+        var rt = row.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(0, 50);
+        var textObj = new GameObject("Label", typeof(RectTransform));
+        textObj.transform.SetParent(row.transform, false);
+        var tRT = textObj.GetComponent<RectTransform>();
+        tRT.anchorMin = Vector2.zero; tRT.anchorMax = Vector2.one;
+        tRT.offsetMin = new Vector2(8, 4); tRT.offsetMax = new Vector2(-8, -4);
+        var tmp = textObj.AddComponent<TextMeshProUGUI>();
+        tmp.text = text; tmp.fontSize = 12;
+        tmp.color = color; tmp.alignment = TextAlignmentOptions.MidlineLeft;
+        return row;
+    }
+}
+
+
+==================================================
+
+Назва файла: ShopPanel.cs
+
+﻿using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public class ShopPanel : MonoBehaviour
+{
+    public static ShopPanel Instance { get; private set; }
+
+    [Header("Об'єкт панелі (видима частина)")]
+    [Tooltip("Перетягни сюди візуальний об'єкт панелі (фон), який треба вмикати/вимикати")]
+    public GameObject panelObj;
+
+    [Header("Кнопки керування вікном")]
+    [Tooltip("Перетягни сюди верхню кнопку 'Магазин' у HUD")]
+    public Button btnOpenShop;
+    [Tooltip("Перетягни сюди маленьку кнопку-хрестик на самій панелі магазину")]
+    public Button btnCloseShop;
+
+    [Header("UI Списки")]
+    public Transform listContent;
+    public GameObject vehicleItemPrefab;
+
+    [Header("База Машин (Вантажні та Пасажирські)")]
+    [Tooltip("Виділи всі VehicleData в папках Cargo та Passenger і перетягни сюди")]
+    public List<VehicleData> availableVehicles = new List<VehicleData>();
+
+    [Header("Префаб для створення у світі")]
+    public GameObject vehicleWorldPrefab;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+
+        // Налаштовуємо кнопки
+        if (btnOpenShop != null)
+        {
+            btnOpenShop.onClick.RemoveAllListeners();
+
+            btnOpenShop.onClick.AddListener(TogglePanel);
+        }
+
+        if (btnCloseShop != null)
+        {
+            btnCloseShop.onClick.RemoveAllListeners();
+            btnCloseShop.onClick.AddListener(ClosePanel);
+        }
+
+        // Вимикаємо панель при старті. 
+        if (panelObj != null) panelObj.SetActive(false);
+    }
+
+    public void TogglePanel()
+    {
+        if (panelObj != null && panelObj.activeSelf)
+        {
+            ClosePanel();
+        }
+        else
+        {
+            OpenPanel();
+        }
+    }
+
+    public void OpenPanel()
+    {
+        panelObj.SetActive(true);
+        PopulateShop();
+    }
+
+    public void ClosePanel()
+    {
+        panelObj.SetActive(false);
+    }
+
+    private void PopulateShop()
+    {
+        // Очищаємо старі елементи
+        foreach (Transform child in listContent)
+        {
+            Destroy(child.gameObject);
+        }
+
+        // Створюємо елемент для кожної машини
+        foreach (var vData in availableVehicles)
+        {
+            if (vData == null) continue;
+
+            GameObject row = Instantiate(vehicleItemPrefab, listContent);
+
+            var nameText = row.transform.Find("Name_Text")?.GetComponent<TextMeshProUGUI>();
+            var statsText = row.transform.Find("Stats_Text")?.GetComponent<TextMeshProUGUI>();
+            var priceText = row.transform.Find("Price_Text")?.GetComponent<TextMeshProUGUI>();
+            var buyBtn = row.transform.Find("Buy_Button")?.GetComponent<Button>();
+
+            // Шукаємо зображення "Vehicle_Image"
+            var iconImg = row.transform.Find("Vehicle_Image")?.GetComponent<Image>();
+
+            if (iconImg != null && vData.icon != null) iconImg.sprite = vData.icon;
+            if (nameText != null) nameText.text = vData.vehicleName;
+
+            if (statsText != null)
+            {
+                statsText.text = $"Місткість: {vData.maxCapacity} | Швидкість: {vData.maxSpeedKmh} км/год\n" +
+                                 $"Пальне: {vData.fuelPer100km} л/100км | Міцність: {vData.maintenanceCost}";
+            }
+
+            if (priceText != null) priceText.text = $"{vData.purchaseCost:F0} у.о.";
+
+            if (buyBtn != null)
+            {
+                buyBtn.onClick.RemoveAllListeners();
+                buyBtn.onClick.AddListener(() => BuyVehicle(vData));
+                Debug.Log($"Куплено {nameText:F0} за {vData.purchaseCost:F0} у.о.");
+            }
+        }
+    }
+
+    private void BuyVehicle(VehicleData data)
+    {
+        if (FinanceManager.Instance == null) return;
+
+        if (!FinanceManager.Instance.CanAfford(data.purchaseCost))
+        {
+            Debug.Log("Недостатньо грошей для придбання!");
+            return;
+        }
+
+        CityNode spawnCity = FindSpawnCity();
+        if (spawnCity == null)
+        {
+            Debug.LogWarning("У вас немає жодного гаража! Збудуйте гараж у місті спочатку.");
+            return;
+        }
+
+        FinanceManager.Instance.AddExpense(data.purchaseCost);
+
+        // Спавнимо авто 
+        GameObject newVehObj = Instantiate(vehicleWorldPrefab, spawnCity.transform.position, Quaternion.identity);
+        newVehObj.name = data.vehicleName + "_" + Random.Range(100, 999);
+
+        // Переміщаємо у папку "Vehicles"
+        GameObject vehiclesFolder = GameObject.Find("Vehicles");
+        if (vehiclesFolder != null)
+        {
+            newVehObj.transform.SetParent(vehiclesFolder.transform);
+        }
+        else
+        {
+            vehiclesFolder = new GameObject("Vehicles");
+            newVehObj.transform.SetParent(vehiclesFolder.transform);
+        }
+
+        var controller = newVehObj.GetComponent<VehicleController>();
+        if (controller != null)
+        {
+            controller.vehicleData = data;
+            controller.currentCity = spawnCity;
+            controller.garageCities = new List<CityNode> { spawnCity };
+            controller.status = VehicleStatus.Idle;
+        }
+
+        Debug.Log($"Придбано {data.vehicleName}. Очікує в {spawnCity.cityName}.");
+
+    }
+
+    private CityNode FindSpawnCity()
+    {
+        CityNode[] allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
+        foreach (var city in allCities)
+        {
+            if (city.hasGarage) return city;
+        }
+        return null;
+    }
+}
+
+==================================================
+

@@ -13,30 +13,51 @@ public class CityInfoPanel : MonoBehaviour
     public Button btnHireMechanic;
     public Button btnCreateRoute;
 
-    private CityNode selectedCity;
+    [Header("Кнопка закриття")]
+    public Button btnClose;
 
-    private void Awake() { Instance = this; panelObj.SetActive(false); }
+    // Публічна властивість (з приватним сетом), щоб Магазин міг перевірити відкрите місто
+    public CityNode SelectedCity { get; private set; }
+
+    private void Awake()
+    {
+        Instance = this;
+        panelObj.SetActive(false);
+
+        // Підписуємо кнопку закриття
+        if (btnClose != null)
+        {
+            btnClose.onClick.RemoveAllListeners();
+            btnClose.onClick.AddListener(ClosePanel);
+        }
+    }
 
     public void OpenPanel(CityNode city)
     {
-        selectedCity = city;
+        SelectedCity = city;
         cityNameText.text = city.cityName;
         panelObj.SetActive(true);
         RefreshUI();
     }
 
-    public void ClosePanel() { panelObj.SetActive(false); }
+    public void ClosePanel()
+    {
+        panelObj.SetActive(false);
+        SelectedCity = null; // Очищаємо вибране місто при закритті
+    }
 
     private void RefreshUI()
     {
-        btnBuildGarage.interactable = !selectedCity.hasGarage;
-        btnHireMechanic.interactable = selectedCity.hasGarage;
+        if (SelectedCity == null) return;
+
+        btnBuildGarage.interactable = !SelectedCity.hasGarage;
+        btnHireMechanic.interactable = SelectedCity.hasGarage;
 
         btnBuildGarage.onClick.RemoveAllListeners();
-        btnBuildGarage.onClick.AddListener(() => { selectedCity.BuildGarage(); RefreshUI(); });
+        btnBuildGarage.onClick.AddListener(() => { SelectedCity.BuildGarage(); RefreshUI(); });
 
         btnHireMechanic.onClick.RemoveAllListeners();
-        btnHireMechanic.onClick.AddListener(() => { selectedCity.HireMechanic(); RefreshUI(); });
+        btnHireMechanic.onClick.AddListener(() => { SelectedCity.HireMechanic(); RefreshUI(); });
 
         btnCreateRoute.onClick.RemoveAllListeners();
         btnCreateRoute.onClick.AddListener(() => {
@@ -46,7 +67,7 @@ public class CityInfoPanel : MonoBehaviour
 
         // Виведення списку попиту
         string ds = "";
-        foreach (var d in selectedCity.demands)
+        foreach (var d in SelectedCity.demands)
             ds += $"В {d.destination.cityName}: {d.currentUnits}/{d.maxUnits}\n";
         demandsListText.text = ds;
     }
