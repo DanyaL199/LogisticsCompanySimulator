@@ -8,13 +8,10 @@ public class ShopPanel : MonoBehaviour
     public static ShopPanel Instance { get; private set; }
 
     [Header("Об'єкт панелі (видима частина)")]
-    [Tooltip("Перетягни сюди візуальний об'єкт панелі (фон), який треба вмикати/вимикати")]
     public GameObject panelObj;
 
     [Header("Кнопки керування вікном")]
-    [Tooltip("Перетягни сюди верхню кнопку 'Магазин' у HUD")]
     public Button btnOpenShop;
-    [Tooltip("Перетягни сюди маленьку кнопку-хрестик на самій панелі магазину")]
     public Button btnCloseShop;
 
     [Header("UI Списки")]
@@ -22,10 +19,10 @@ public class ShopPanel : MonoBehaviour
     public GameObject vehicleItemPrefab;
 
     [Header("База Машин (Вантажні та Пасажирські)")]
-    [Tooltip("Виділи всі VehicleData в папках Cargo та Passenger і перетягни сюди")]
     public List<VehicleData> availableVehicles = new List<VehicleData>();
 
     [Header("Префаб для створення у світі")]
+    [Tooltip("ВАЖЛИВО: Перетягни сюди префаб звичайної машини, що має VehicleController на собі")]
     public GameObject vehicleWorldPrefab;
 
     private void Awake()
@@ -36,7 +33,6 @@ public class ShopPanel : MonoBehaviour
         if (btnOpenShop != null)
         {
             btnOpenShop.onClick.RemoveAllListeners();
-
             btnOpenShop.onClick.AddListener(TogglePanel);
         }
 
@@ -46,20 +42,13 @@ public class ShopPanel : MonoBehaviour
             btnCloseShop.onClick.AddListener(ClosePanel);
         }
 
-        // Вимикаємо панель при старті. 
         if (panelObj != null) panelObj.SetActive(false);
     }
 
     public void TogglePanel()
     {
-        if (panelObj != null && panelObj.activeSelf)
-        {
-            ClosePanel();
-        }
-        else
-        {
-            OpenPanel();
-        }
+        if (panelObj != null && panelObj.activeSelf) ClosePanel();
+        else OpenPanel();
     }
 
     public void OpenPanel()
@@ -75,13 +64,8 @@ public class ShopPanel : MonoBehaviour
 
     private void PopulateShop()
     {
-        // Очищаємо старі елементи
-        foreach (Transform child in listContent)
-        {
-            Destroy(child.gameObject);
-        }
+        foreach (Transform child in listContent) Destroy(child.gameObject);
 
-        // Створюємо елемент для кожної машини
         foreach (var vData in availableVehicles)
         {
             if (vData == null) continue;
@@ -92,8 +76,6 @@ public class ShopPanel : MonoBehaviour
             var statsText = row.transform.Find("Stats_Text")?.GetComponent<TextMeshProUGUI>();
             var priceText = row.transform.Find("Price_Text")?.GetComponent<TextMeshProUGUI>();
             var buyBtn = row.transform.Find("Buy_Button")?.GetComponent<Button>();
-
-            // Шукаємо зображення "Vehicle_Image"
             var iconImg = row.transform.Find("Vehicle_Image")?.GetComponent<Image>();
 
             if (iconImg != null && vData.icon != null) iconImg.sprite = vData.icon;
@@ -109,8 +91,10 @@ public class ShopPanel : MonoBehaviour
 
             if (buyBtn != null)
             {
+                // Захоплюємо змінну для замикання
+                var dataToBuy = vData;
                 buyBtn.onClick.RemoveAllListeners();
-                buyBtn.onClick.AddListener(() => BuyVehicle(vData));
+                buyBtn.onClick.AddListener(() => BuyVehicle(dataToBuy));
             }
         }
     }
@@ -119,16 +103,22 @@ public class ShopPanel : MonoBehaviour
     {
         if (FinanceManager.Instance == null) return;
 
+        if (vehicleWorldPrefab == null)
+        {
+            Debug.LogError("ПОМИЛКА: Не призначено vehicleWorldPrefab в інспекторі ShopPanel!");
+            return;
+        }
+
         if (!FinanceManager.Instance.CanAfford(data.purchaseCost))
         {
-            Debug.Log("Недостатньо грошей для придбання!");
+            Debug.LogWarning("Недостатньо грошей для придбання!");
             return;
         }
 
         CityNode spawnCity = FindSpawnCity();
         if (spawnCity == null)
         {
-            Debug.LogWarning("У вас немає жодного гаража! Збудуйте гараж у місті спочатку.");
+            Debug.LogWarning("У вас немає жодного гаража! Збудуйте гараж у будь-якому місті спочатку.");
             return;
         }
 
@@ -140,10 +130,7 @@ public class ShopPanel : MonoBehaviour
 
         // Переміщаємо у папку "Vehicles"
         GameObject vehiclesFolder = GameObject.Find("Vehicles");
-        if (vehiclesFolder != null)
-        {
-            newVehObj.transform.SetParent(vehiclesFolder.transform);
-        }
+        if (vehiclesFolder != null) newVehObj.transform.SetParent(vehiclesFolder.transform);
         else
         {
             vehiclesFolder = new GameObject("Vehicles");
@@ -157,19 +144,34 @@ public class ShopPanel : MonoBehaviour
             controller.currentCity = spawnCity;
             controller.garageCities = new List<CityNode> { spawnCity };
             controller.status = VehicleStatus.Idle;
+
+            // МИТТЄВО додаємо до автопарку, щоб оновилося вікно
+            var fleetPanel = FindFirstObjectByType<FleetPanelController>();
+            if (fleetPanel != null)
+            {
+                fleetPanel.RegisterVehicle(controller);
+            }
         }
 
-        Debug.Log($"Придбано {data.vehicleName}. Очікує в {spawnCity.cityName}.");
-
+        Debug.Log($"Придбано {data.vehicleName}. Машина очікує в місті {spawnCity.cityName}.");
     }
 
     private CityNode FindSpawnCity()
     {
+        // 1. Спочатку перевіряємо, чи відкрите якесь місто в CityInfoPanel і чи є там гараж
+        if (CityInfoPanel.Instance != null && CityInfoPanel.Instance.SelectedCity != null)
+        {
+            if (CityInfoPanel.Instance.SelectedCity.hasGarage)
+                return CityInfoPanel.Instance.SelectedCity;
+        }
+
+        // 2. Якщо вікно міста закрите, шукаємо перше-ліпше місто на карті, де є гараж
         CityNode[] allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
         foreach (var city in allCities)
         {
             if (city.hasGarage) return city;
         }
+
         return null;
     }
 }
