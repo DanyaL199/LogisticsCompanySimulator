@@ -6,10 +6,7 @@ public class RouteVisualizer : MonoBehaviour
     public GameObject linePrefab;
     private RouteDefinition route;
 
-    private void Awake()
-    {
-        route = GetComponent<RouteDefinition>();
-    }
+    private void Awake() { route = GetComponent<RouteDefinition>(); }
 
     private void Start()
     {

@@ -3,14 +3,17 @@ using System.Collections.Generic;
 
 public enum CityType { Industrial, Trade, Tourist }
 
+// Тепер попит розділено на товари та людей!
 [System.Serializable]
 public class CityDemand
 {
     public CityNode destination;
-    public int currentUnits;  // скільки зараз чекає
-    public int maxUnits;      // максимум (ліміт)
+    public int currentCargo;
+    public int maxCargo;
+    public int currentPassengers;
+    public int maxPassengers;
     [Range(0.01f, 0.05f)]
-    public float annualGrowth;  // 1–5% на рік
+    public float annualGrowth;
 }
 
 public class CityNode : MonoBehaviour
@@ -23,11 +26,16 @@ public class CityNode : MonoBehaviour
     [Range(1, 3)]
     public int activityLevel = 1;
 
-    [Header("Гараж та персонал")]
-    public bool hasGarage = false;
+    [Header("Персонал")]
     public int mechanics = 0;
+    public int maxMechanics = 10;
 
-    [Header("Попит до інших міст")]
+    [Header("Майстерня")]
+    public bool hasWorkshop = false;
+    public int repairSlots = 2; // Зі старту 2 слоти
+    public const int MAX_REPAIR_SLOTS = 5;
+
+    [Header("Попит (Автоматично генерується)")]
     public List<CityDemand> demands = new List<CityDemand>();
 
     private void Start()
@@ -37,10 +45,14 @@ public class CityNode : MonoBehaviour
 
         CreateLabel();
 
+        // Генеруємо рандомний попит між містами після мікро-затримки (щоб всі міста створились)
+        Invoke(nameof(GenerateRandomDemands), 0.1f);
+
         if (GameTimeManager.Instance != null)
         {
             GameTimeManager.Instance.OnDayChanged += OnDayChanged;
             GameTimeManager.Instance.OnYearChanged += OnYearChanged;
+            GameTimeManager.Instance.OnHourChanged += OnHourChanged;
         }
     }
 
@@ -50,80 +62,164 @@ public class CityNode : MonoBehaviour
         {
             GameTimeManager.Instance.OnDayChanged -= OnDayChanged;
             GameTimeManager.Instance.OnYearChanged -= OnYearChanged;
+            GameTimeManager.Instance.OnHourChanged -= OnHourChanged;
         }
     }
 
-    // ─── Попит ───────────────────────────────────────────────
+    private void GenerateRandomDemands()
+    {
+        demands.Clear();
+        var allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
+
+        foreach (var c in allCities)
+        {
+            if (c == this) continue; // Немає попиту везти до самого себе
+
+            CityDemand d = new CityDemand();
+            d.destination = c;
+            d.annualGrowth = Random.Range(0.01f, 0.05f);
+
+            // Чим більший рівень обох міст, тим більший загальний попит між ними
+            int baseTotalDemand = (activityLevel * 45) + (c.activityLevel * 45) + Random.Range(10, 50);
+
+            // Визначаємо коефіцієнт (частку вантажів) залежно від типу НАШОГО міста
+            float cargoRatio = 0.5f;
+            if (cityType == CityType.Industrial) cargoRatio = 0.8f;      // 80% Ван. : 20% Пас.
+            else if (cityType == CityType.Tourist) cargoRatio = 0.2f;    // 20% Ван. : 80% Пас.
+            else if (cityType == CityType.Trade) cargoRatio = 0.5f;      // 50% Ван. : 50% Пас.
+
+            d.maxCargo = Mathf.RoundToInt(baseTotalDemand * cargoRatio);
+            d.maxPassengers = Mathf.RoundToInt(baseTotalDemand * (1f - cargoRatio));
+
+            // Даємо трохи початкового накопичення (від 30% до 80% від макс)
+            d.currentCargo = Mathf.RoundToInt(d.maxCargo * Random.Range(0.3f, 0.8f));
+            d.currentPassengers = Mathf.RoundToInt(d.maxPassengers * Random.Range(0.3f, 0.8f));
+
+            demands.Add(d);
+        }
+    }
 
     private void OnDayChanged(GameDate date)
     {
+        // Щодня попит відновлюється на 30%
         foreach (var d in demands)
         {
-            int replenish = Mathf.CeilToInt(d.maxUnits * 0.3f);
-            d.currentUnits = Mathf.Min(d.maxUnits, d.currentUnits + replenish);
+            int replenishC = Mathf.CeilToInt(d.maxCargo * 0.3f);
+            d.currentCargo = Mathf.Min(d.maxCargo, d.currentCargo + replenishC);
+
+            int replenishP = Mathf.CeilToInt(d.maxPassengers * 0.3f);
+            d.currentPassengers = Mathf.Min(d.maxPassengers, d.currentPassengers + replenishP);
         }
     }
 
     private void OnYearChanged(GameDate date)
     {
+        // Щороку місто росте 
         foreach (var d in demands)
         {
             float growth = Random.Range(0.01f, d.annualGrowth);
-            d.maxUnits = Mathf.RoundToInt(d.maxUnits * (1f + growth));
+            d.maxCargo = Mathf.RoundToInt(d.maxCargo * (1f + growth));
+            d.maxPassengers = Mathf.RoundToInt(d.maxPassengers * (1f + growth));
         }
     }
 
-    public int TakeUnits(CityNode destination, int capacity)
+    private void OnHourChanged(GameDate date)
+    {
+        if (!hasWorkshop) return;
+
+        var allVehicles = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
+        List<VehicleController> repairingHere = new List<VehicleController>();
+
+        foreach (var v in allVehicles)
+        {
+            if (v.currentCity == this && v.status == VehicleStatus.Repairing)
+                repairingHere.Add(v);
+        }
+
+        float repairAmountPerHour = (5f + (mechanics * 10f)) / 24f;
+        foreach (var v in repairingHere)
+        {
+            v.condition += repairAmountPerHour;
+            if (v.condition >= 100f) { v.condition = 100f; v.FinishRepairExternal(); }
+        }
+    }
+
+    // Тепер ми перевіряємо, який тип ми хочемо забрати!
+    public int TakeUnits(CityNode destination, int capacity, VehicleType type)
     {
         var d = demands.Find(x => x.destination == destination);
         if (d == null) return 0;
 
-        int taken = Mathf.Min(d.currentUnits, capacity);
-        d.currentUnits -= taken;
-        return taken;
+        if (type == VehicleType.Cargo)
+        {
+            int taken = Mathf.Min(d.currentCargo, capacity);
+            d.currentCargo -= taken;
+            return taken;
+        }
+        else
+        {
+            int taken = Mathf.Min(d.currentPassengers, capacity);
+            d.currentPassengers -= taken;
+            return taken;
+        }
     }
 
-    public int GetDemandTo(CityNode destination)
+    // Який попит для конкретного типу?
+    public int GetDemandTo(CityNode destination, VehicleType type)
     {
         var d = demands.Find(x => x.destination == destination);
-        return d?.currentUnits ?? 0;
+        if (d == null) return 0;
+        return type == VehicleType.Cargo ? d.currentCargo : d.currentPassengers;
     }
 
-    public int GetTotalDemand()
+    public void BuildWorkshop()
     {
-        int total = 0;
-        foreach (var d in demands) total += d.currentUnits;
-        return total;
+        if (FinanceManager.Instance.CanAfford(50000f))
+        {
+            FinanceManager.Instance.AddExpense(50000f);
+            hasWorkshop = true;
+        }
+    }
+
+    public void HireMechanic()
+    {
+        if (mechanics >= maxMechanics) return;
+        int hireCost = 1000;
+        if (FinanceManager.Instance.CanAfford(hireCost))
+        {
+            FinanceManager.Instance.AddExpense(hireCost);
+            mechanics++;
+        }
+    }
+
+    public void UpgradeWorkshop()
+    {
+        if (repairSlots >= MAX_REPAIR_SLOTS) return;
+        float upgradeCost = 5000f;
+        if (FinanceManager.Instance.CanAfford(upgradeCost))
+        {
+            FinanceManager.Instance.AddExpense(upgradeCost);
+            repairSlots++;
+        }
     }
 
     public bool GeneratesIncomeFor(VehicleType vt)
     {
-        if (cityType == CityType.Trade) return true;
+        // Для базових споживань (їзда пустим) зберігаємо стару логіку профільності:
         if (cityType == CityType.Industrial) return vt == VehicleType.Cargo;
         if (cityType == CityType.Tourist) return vt == VehicleType.Passenger;
-        return false;
+        return true;
     }
 
-    public int GetDailyDemandLimit() =>
-        activityLevel == 3 ? 300 : activityLevel == 2 ? 150 : 60;
-
-    public void BuildGarage()
-    {
-        hasGarage = true;
-        Debug.Log($"Гараж збудовано у місті {cityName}");
-    }
-
-    // ─── Назва міста у World Space ───────────────────────────
+    public int GetDailyDemandLimit() => activityLevel == 3 ? 300 : activityLevel == 2 ? 150 : 60;
 
     private void CreateLabel()
     {
         if (transform.Find("CityLabel") != null) return;
-
         var obj = new GameObject("CityLabel");
         obj.transform.SetParent(transform);
         obj.transform.localPosition = new Vector3(0f, 0.9f, 0f);
         obj.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
-
         var tmp = obj.AddComponent<TMPro.TextMeshPro>();
         tmp.text = cityName;
         tmp.fontSize = 8f;
@@ -132,8 +228,6 @@ public class CityNode : MonoBehaviour
         tmp.fontStyle = TMPro.FontStyles.Bold;
         tmp.sortingOrder = 10;
     }
-
-    // ─── Gizmos (тільки в редакторі) ─────────────────────────
 
     private void OnDrawGizmos()
     {
@@ -145,38 +239,5 @@ public class CityNode : MonoBehaviour
             _ => Color.white
         };
         Gizmos.DrawWireSphere(transform.position, 0.4f);
-    }
-
-    // -─── Найм механіка ───────────────────────────────
-    public void HireMechanic()
-    {
-        int hireCost = 1000; // Вартість найму одного механіка
-        if (FinanceManager.Instance.CanAfford(hireCost))
-        {
-            FinanceManager.Instance.AddExpense(hireCost);
-            mechanics++;
-            Debug.Log("Механіка найнято! Тепер їх: " + mechanics);
-        }
-        else
-        {
-            Debug.LogWarning("Недостатньо коштів для найму механіка!");
-        }
-    }
-
-    // ─── Обробка кліку по місту ───────────────────────────────
-    private void OnMouseDown()
-    {
-        // Перевіряємо чи не клікнули ми по UI (по вікнах/кнопках)
-        if (UnityEngine.EventSystems.EventSystem.current != null &&
-            UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
-        {
-            return;
-        }
-
-        // Відкриваємо інфо-панель
-        if (CityInfoPanel.Instance != null)
-        {
-            CityInfoPanel.Instance.OpenPanel(this);
-        }
     }
 }

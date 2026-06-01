@@ -5,173 +5,151 @@ using TMPro;
 
 public class ShopPanel : MonoBehaviour
 {
-    public static ShopPanel Instance { get; private set; }
-
-    [Header("Об'єкт панелі (видима частина)")]
+    [Header("UI References")]
     public GameObject panelObj;
-
-    [Header("Кнопки керування вікном")]
     public Button btnOpenShop;
     public Button btnCloseShop;
+    public RectTransform listContent;
 
-    [Header("UI Списки")]
-    public Transform listContent;
+    [Header("Prefabs")]
     public GameObject vehicleItemPrefab;
-
-    [Header("База Машин (Вантажні та Пасажирські)")]
-    public List<VehicleData> availableVehicles = new List<VehicleData>();
-
-    [Header("Префаб для створення у світі")]
-    [Tooltip("ВАЖЛИВО: Перетягни сюди префаб звичайної машини, що має VehicleController на собі")]
     public GameObject vehicleWorldPrefab;
 
-    private void Awake()
-    {
-        if (Instance == null) Instance = this;
+    [Header("Available Vehicles")]
+    public List<VehicleData> availableVehicles;
 
-        // Налаштовуємо кнопки
+    private void Start()
+    {
         if (btnOpenShop != null)
-        {
-            btnOpenShop.onClick.RemoveAllListeners();
-            btnOpenShop.onClick.AddListener(TogglePanel);
-        }
+            btnOpenShop.onClick.AddListener(OpenShop);
 
         if (btnCloseShop != null)
-        {
-            btnCloseShop.onClick.RemoveAllListeners();
-            btnCloseShop.onClick.AddListener(ClosePanel);
-        }
+            btnCloseShop.onClick.AddListener(CloseShop);
 
-        if (panelObj != null) panelObj.SetActive(false);
+        CloseShop(); // Ховаємо панель на початку
     }
 
-    public void TogglePanel()
-    {
-        if (panelObj != null && panelObj.activeSelf) ClosePanel();
-        else OpenPanel();
-    }
-
-    public void OpenPanel()
+    public void OpenShop()
     {
         panelObj.SetActive(true);
-        PopulateShop();
+        PopulateShop();  // Оновлюємо список щоразу при відкритті
     }
 
-    public void ClosePanel()
+    public void CloseShop()
     {
         panelObj.SetActive(false);
     }
 
     private void PopulateShop()
     {
-        foreach (Transform child in listContent) Destroy(child.gameObject);
+        // Очищаємо старі елементи
+        foreach (Transform child in listContent)
+        {
+            Destroy(child.gameObject);
+        }
 
+        // Створюємо нові
         foreach (var vData in availableVehicles)
         {
-            if (vData == null) continue;
+            GameObject item = Instantiate(vehicleItemPrefab, listContent);
 
-            GameObject row = Instantiate(vehicleItemPrefab, listContent);
+            TextMeshProUGUI[] allTexts = item.GetComponentsInChildren<TextMeshProUGUI>(true);
 
-            var nameText = row.transform.Find("Name_Text")?.GetComponent<TextMeshProUGUI>();
-            var statsText = row.transform.Find("Stats_Text")?.GetComponent<TextMeshProUGUI>();
-            var priceText = row.transform.Find("Price_Text")?.GetComponent<TextMeshProUGUI>();
-            var buyBtn = row.transform.Find("Buy_Button")?.GetComponent<Button>();
-            var iconImg = row.transform.Find("Vehicle_Image")?.GetComponent<Image>();
+            // 1. НАЗВА (розумний пошук)
+            TextMeshProUGUI titleText = FindTMP(allTexts, "title", "name", "vehiclename");
+            if (titleText == null && allTexts.Length > 0) titleText = allTexts[0];
+            if (titleText != null) titleText.text = vData.vehicleName;
 
-            if (iconImg != null && vData.icon != null) iconImg.sprite = vData.icon;
-            if (nameText != null) nameText.text = vData.vehicleName;
+            // 2. ЦІНА
+            TextMeshProUGUI priceText = FindTMP(allTexts, "price", "cost", "value");
+            if (priceText == null && allTexts.Length > 1) priceText = allTexts[1];
+            if (priceText != null) priceText.text = $"{vData.purchaseCost} у.о.";
 
+            // 3. ХАРАКТЕРИСТИКИ
+            TextMeshProUGUI statsText = FindTMP(allTexts, "stat", "info", "desc", "detail");
+            if (statsText == null && allTexts.Length > 2) statsText = allTexts[2];
             if (statsText != null)
             {
                 statsText.text = $"Місткість: {vData.maxCapacity} | Швидкість: {vData.maxSpeedKmh} км/год\n" +
                                  $"Пальне: {vData.fuelPer100km} л/100км | Міцність: {vData.maintenanceCost}";
             }
 
-            if (priceText != null) priceText.text = $"{vData.purchaseCost:F0} у.о.";
+            // 4. ІКОНКА
+            Image iconImg = null;
+            Image[] allImages = item.GetComponentsInChildren<Image>(true);
+            foreach (var img in allImages)
+            {
+                if (img.gameObject == item) continue; // Пропускаємо фон самого префабу
+                string n = img.name.ToLower();
+                if (n.Contains("icon") || n.Contains("img") || n.Contains("vehicle") || n.Contains("sprite"))
+                {
+                    iconImg = img;
+                    break;
+                }
+            }
+            // Резервний варіант: беремо другу картинку (перша це завжди фон)
+            if (iconImg == null && allImages.Length > 1) iconImg = allImages[1]; 
 
+            if (iconImg != null && vData.icon != null)
+            {
+                iconImg.sprite = vData.icon;
+                iconImg.color = Color.white; // Запобігає прозорим іконкам
+            }
+
+            // 5. КНОПКА "КУПИТИ"
+            Button buyBtn = item.GetComponentInChildren<Button>(true);
             if (buyBtn != null)
             {
-                // Захоплюємо змінну для замикання
-                var dataToBuy = vData;
                 buyBtn.onClick.RemoveAllListeners();
-                buyBtn.onClick.AddListener(() => BuyVehicle(dataToBuy));
+                var capturedData = vData; // Фіксуємо змінну 
+                buyBtn.onClick.AddListener(() => BuyVehicle(capturedData));
             }
         }
     }
 
-    private void BuyVehicle(VehicleData data)
+    private TextMeshProUGUI FindTMP(TextMeshProUGUI[] texts, params string[] keywords)
+    {
+        foreach (var t in texts)
+        {
+            string n = t.name.ToLower();
+            foreach (var k in keywords)
+            {
+                if (n.Contains(k)) return t;
+            }
+        }
+        return null;
+    }
+
+    private void BuyVehicle(VehicleData vData)
     {
         if (FinanceManager.Instance == null) return;
 
-        if (vehicleWorldPrefab == null)
+        if (FinanceManager.Instance.CanAfford(vData.purchaseCost))
         {
-            Debug.LogError("ПОМИЛКА: Не призначено vehicleWorldPrefab в інспекторі ShopPanel!");
-            return;
+            FinanceManager.Instance.AddExpense(vData.purchaseCost);
+
+            // Спавнимо новий транспорт ДУЖЕ ДАЛЕКО ЗА КАДРОМ (10000, 10000)
+            // Завдяки цьому ми його НЕ вимикаємо (SetActite(false) скасував би запуск Start).
+            // Відтак метод Start() успішно виконається і машина САМА додасться 
+            // в Автопарк. А при призначенні маршруту – вона телепортується в потрібне місто.
+            Vector3 hiddenPosition = new Vector3(10000f, 10000f, 0f);
+            GameObject newVeh = Instantiate(vehicleWorldPrefab, hiddenPosition, Quaternion.identity);
+
+            VehicleController vc = newVeh.GetComponent<VehicleController>();
+            if (vc != null)
+            {
+                vc.vehicleData = vData;
+                vc.customName = $"{vData.vehicleName}_{Random.Range(100, 999)}";
+                vc.status = VehicleStatus.Idle;
+            }
+
+            Debug.Log($"Придбано {vData.vehicleName}. Відкрийте Автопарк для призначення маршруту!");
         }
-
-        if (!FinanceManager.Instance.CanAfford(data.purchaseCost))
-        {
-            Debug.LogWarning("Недостатньо грошей для придбання!");
-            return;
-        }
-
-        CityNode spawnCity = FindSpawnCity();
-        if (spawnCity == null)
-        {
-            Debug.LogWarning("У вас немає жодного гаража! Збудуйте гараж у будь-якому місті спочатку.");
-            return;
-        }
-
-        FinanceManager.Instance.AddExpense(data.purchaseCost);
-
-        // Спавнимо авто 
-        GameObject newVehObj = Instantiate(vehicleWorldPrefab, spawnCity.transform.position, Quaternion.identity);
-        newVehObj.name = data.vehicleName + "_" + Random.Range(100, 999);
-
-        // Переміщаємо у папку "Vehicles"
-        GameObject vehiclesFolder = GameObject.Find("Vehicles");
-        if (vehiclesFolder != null) newVehObj.transform.SetParent(vehiclesFolder.transform);
         else
         {
-            vehiclesFolder = new GameObject("Vehicles");
-            newVehObj.transform.SetParent(vehiclesFolder.transform);
+            Debug.LogWarning("Недостатньо грошей для покупки!");
+            if (NotificationController.Instance != null)
+                NotificationController.ShowMessage("Недостатньо коштів для покупки!", Color.red);
         }
-
-        var controller = newVehObj.GetComponent<VehicleController>();
-        if (controller != null)
-        {
-            controller.vehicleData = data;
-            controller.currentCity = spawnCity;
-            controller.garageCities = new List<CityNode> { spawnCity };
-            controller.status = VehicleStatus.Idle;
-
-            // МИТТЄВО додаємо до автопарку, щоб оновилося вікно
-            var fleetPanel = FindFirstObjectByType<FleetPanelController>();
-            if (fleetPanel != null)
-            {
-                fleetPanel.RegisterVehicle(controller);
-            }
-        }
-
-        Debug.Log($"Придбано {data.vehicleName}. Машина очікує в місті {spawnCity.cityName}.");
-    }
-
-    private CityNode FindSpawnCity()
-    {
-        // 1. Спочатку перевіряємо, чи відкрите якесь місто в CityInfoPanel і чи є там гараж
-        if (CityInfoPanel.Instance != null && CityInfoPanel.Instance.SelectedCity != null)
-        {
-            if (CityInfoPanel.Instance.SelectedCity.hasGarage)
-                return CityInfoPanel.Instance.SelectedCity;
-        }
-
-        // 2. Якщо вікно міста закрите, шукаємо перше-ліпше місто на карті, де є гараж
-        CityNode[] allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
-        foreach (var city in allCities)
-        {
-            if (city.hasGarage) return city;
-        }
-
-        return null;
     }
 }

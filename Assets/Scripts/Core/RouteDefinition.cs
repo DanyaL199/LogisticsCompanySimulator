@@ -13,13 +13,13 @@ public class RouteDefinition : MonoBehaviour
     public string routeName;
 
     [Header("Колір маршруту (обирає гравець)")]
-    public Color routeColor = new Color(1f, 0.6f, 0f); // оранжевий за замовчуванням
+    public Color routeColor = new Color(1f, 0.6f, 0f);
 
     [Header("Зупинки по порядку")]
     public List<RouteStop> stops = new List<RouteStop>();
 
     [Header("Статистика")]
-    public float incomeStats = 0f; // Додано для збереження прибутку маршруту
+    public float incomeStats = 0f;
 
     [HideInInspector]
     public List<LineRenderer> highlightLines = new List<LineRenderer>();
@@ -38,12 +38,7 @@ public class RouteDefinition : MonoBehaviour
 
     public void ShowHighlight(bool hasVehicle)
     {
-        Color color = hasVehicle
-            ? routeColor
-            : new Color(routeColor.r * 0.4f,
-                        routeColor.g * 0.4f,
-                        routeColor.b * 0.4f, 0.8f);
-
+        Color color = hasVehicle ? routeColor : new Color(routeColor.r * 0.4f, routeColor.g * 0.4f, routeColor.b * 0.4f, 0.8f);
         foreach (var lr in highlightLines)
         {
             if (lr == null) continue;

@@ -16,7 +16,6 @@ public class FleetPanelController : MonoBehaviour
 
     private List<VehicleController> trackedVehicles = new List<VehicleController>();
     private List<GameObject> activeRows = new List<GameObject>();
-
     private bool isPanelOpen = false;
     private float refreshTimer = 0f;
 
@@ -64,7 +63,6 @@ public class FleetPanelController : MonoBehaviour
     {
         trackedVehicles.RemoveAll(v => v == null);
 
-        // Синхронізація кількості рядків
         while (activeRows.Count < trackedVehicles.Count)
         {
             GameObject newRow = Instantiate(vehicleRowPrefab, contentTransform);
@@ -77,7 +75,6 @@ public class FleetPanelController : MonoBehaviour
             Destroy(rowToRemove);
         }
 
-        // Оновлюємо дані у рядках
         for (int i = 0; i < trackedVehicles.Count; i++)
         {
             VehicleController v = trackedVehicles[i];
@@ -87,28 +84,38 @@ public class FleetPanelController : MonoBehaviour
             if (nameText) nameText.text = v.vehicleData != null ? v.vehicleData.vehicleName : "Транспорт";
 
             var statusText = row.transform.Find("Status_Text")?.GetComponent<TextMeshProUGUI>();
-            if (statusText) statusText.text = v.status.ToString();
+            if (statusText) statusText.text = $"{v.status} ({v.condition:F0}%)";
 
             var condBar = row.transform.Find("Condition_Bar")?.GetComponent<Image>();
-            if (condBar) condBar.fillAmount = v.condition / 100f;
+            if (condBar) { condBar.gameObject.SetActive(true); condBar.fillAmount = v.condition / 100f; }
 
-            var statsText = row.transform.Find("Stats_Text")?.GetComponent<TextMeshProUGUI>();
-            if (statsText) statsText.text = $"Завантажено: {v.currentLoad}";
-
-            var repairBtn = row.transform.Find("Repair_Button")?.GetComponent<Button>();
+            // "Евакуація"
+            var repairBtn = row.transform.Find("Repair_Button")?.GetComponent<Button>() ?? row.transform.Find("Btn_Repair")?.GetComponent<Button>();
             if (repairBtn)
             {
+                repairBtn.gameObject.SetActive(true);
                 repairBtn.onClick.RemoveAllListeners();
                 repairBtn.onClick.AddListener(() => v.RequestRepair());
-                repairBtn.interactable = v.condition < 100f && v.status != VehicleStatus.Repairing;
+                repairBtn.interactable = v.condition <= 0f && v.status == VehicleStatus.Broken; // Працює тільки для евакуації
             }
 
-            // Логіка оновлення Dropdown списку маршрутів
-            var routeDropdown = row.transform.Find("Route_Dropdown")?.GetComponent<TMP_Dropdown>();
-            if (routeDropdown)
+            // "Продати"
+            var sellBtn = row.transform.Find("Btn_Sell")?.GetComponent<Button>();
+            if (sellBtn)
             {
-                UpdateRouteDropdown(routeDropdown, v);
+                sellBtn.gameObject.SetActive(true);
+                sellBtn.onClick.RemoveAllListeners();
+                sellBtn.onClick.AddListener(() => {
+                    if (FinanceManager.Instance != null && v.vehicleData != null)
+                        FinanceManager.Instance.AddIncome(v.vehicleData.purchaseCost * 0.4f);
+                    trackedVehicles.Remove(v);
+                    Destroy(v.gameObject);
+                    UpdateRows();
+                });
             }
+
+            var routeDropdown = row.transform.Find("Route_Dropdown")?.GetComponent<TMP_Dropdown>();
+            if (routeDropdown) { routeDropdown.gameObject.SetActive(true); UpdateRouteDropdown(routeDropdown, v); }
         }
     }
 
@@ -121,14 +128,15 @@ public class FleetPanelController : MonoBehaviour
         for (int i = 0; i < allRoutes.Length; i++)
         {
             var route = allRoutes[i];
-            string routeDesc = $"{route.routeName} (Зупинок: {route.stops.Count})";
-            options.Add(routeDesc);
-
-            if (v.activeRoute == route)
-                currentIndex = i + 1; // +1 бо 0 резервується під "Немає маршруту"
+            options.Add($"{route.routeName} (Зупинок: {route.stops.Count})");
+            if (v.activeRoute == route || v.status == VehicleStatus.ReturningToWorkshop)
+            {
+                // Якщо їде на ремонт — тримаємо його вибраним візуально як "приписаний"
+                if (v.activeRoute == route || (v.status == VehicleStatus.ReturningToWorkshop))
+                    currentIndex = i + 1;
+            }
         }
 
-        // Оновлюємо список лише якщо маршрути змінились, щоб не збивати фокус у меню
         if (dropdown.options.Count != options.Count || dropdown.value != currentIndex)
         {
             dropdown.ClearOptions();
@@ -137,11 +145,14 @@ public class FleetPanelController : MonoBehaviour
 
             dropdown.onValueChanged.RemoveAllListeners();
             dropdown.onValueChanged.AddListener((index) => {
-                v.StopRoute(); // Завжди зупиняємо старий
-                if (index > 0)
+                if (index == 0)
+                {
+                    v.StopRoute();
+                }
+                else
                 {
                     RouteDefinition selectedRoute = allRoutes[index - 1];
-                    v.StartRoute(selectedRoute); // Стартуємо новий, якщо обрано
+                    v.StartRoute(selectedRoute);
                 }
             });
         }

@@ -39,67 +39,44 @@ public class FinanceManager : MonoBehaviour
     {
         foreach (var v in vehicles)
         {
-            if (v == null) continue;
-            // Щоденне ТО (незначне)
-            AddExpense(v.vehicleData.maintenanceCost / 30f);
+            // Щоденне абонентське ТО (незначне)
+            if (v != null) AddExpense(v.vehicleData.maintenanceCost / 30f);
         }
     }
 
     public void OnNewMonth(GameDate date)
     {
-        // Зарплати водіям
         if (WageManager.Instance != null)
-        {
-            float wages = WageManager.Instance.GetTotalMonthlyWageCost(vehicles.Count);
-            AddExpense(wages);
-        }
+            AddExpense(WageManager.Instance.GetTotalMonthlyWageCost(vehicles.Count));
 
-        // Обслуговування гаражів та механіків
+        // Обслуговування майстерень
         float facilitiesCost = 0f;
         var allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
         foreach (var c in allCities)
         {
-            if (c.hasGarage)
+            if (c.hasWorkshop)
             {
-                facilitiesCost += 500f; // Технічне утримання гаража
-                facilitiesCost += c.mechanics * 500f; // Зарплата механікам
+                facilitiesCost += 500f;
+                facilitiesCost += c.mechanics * 500f;
             }
         }
 
         if (facilitiesCost > 0)
-        {
             AddExpense(facilitiesCost);
-            Debug.Log($"[{date.ToShortString()}] Витрати на інфраструктуру: {facilitiesCost:F0} у.о.");
-        }
     }
 
-    public void AddIncome(float amount)
-    {
-        balance += amount;
-        totalIncome += amount;
-    }
-
-    public void AddExpense(float amount)
-    {
-        balance -= amount;
-        totalExpenses += amount;
-    }
-
+    public void AddIncome(float amount) { balance += amount; totalIncome += amount; }
+    public void AddExpense(float amount) { balance -= amount; totalExpenses += amount; }
     public bool CanAfford(float amount) => balance >= amount;
 
     public void RegisterVehicle(VehicleController v)
     {
-        if (!vehicles.Contains(v))
-        {
-            vehicles.Add(v);
-            vehicleAssetsValue += v.vehicleData.purchaseCost;
-        }
+        if (!vehicles.Contains(v)) { vehicles.Add(v); vehicleAssetsValue += v.vehicleData.purchaseCost; }
     }
 
     public void UnregisterVehicle(VehicleController v)
     {
-        if (vehicles.Remove(v))
-            vehicleAssetsValue -= v.vehicleData.purchaseCost;
+        if (vehicles.Remove(v)) vehicleAssetsValue -= v.vehicleData.purchaseCost;
     }
 
     public void RegisterRoadValue(float cost) => roadAssetsValue += cost;

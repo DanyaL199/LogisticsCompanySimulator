@@ -24,8 +24,7 @@ public class SaveManager : MonoBehaviour
 {
     public static SaveManager Instance { get; private set; }
 
-    private string SavePath =>
-        Path.Combine(Application.persistentDataPath, "save.json");
+    private string SavePath => Path.Combine(Application.persistentDataPath, "save.json");
 
     private void Awake()
     {
@@ -47,9 +46,7 @@ public class SaveManager : MonoBehaviour
 
     private void AutoSave(GameDate date)
     {
-        // Автозбереження кожні 5 ігрових днів
-        if (date.day % 5 == 0)
-            Save();
+        if (date.day % 5 == 0) Save();
     }
 
     public void Save()
@@ -74,7 +71,6 @@ public class SaveManager : MonoBehaviour
             saveHour = tm.CurrentDate.hour,
         };
 
-        // Знайти перший ТЗ і зберегти його стан
         var vehicle = FindFirstObjectByType<VehicleController>();
         if (vehicle != null)
         {
@@ -93,7 +89,6 @@ public class SaveManager : MonoBehaviour
     public GameSaveData Load()
     {
         if (!HasSave()) return null;
-
         string json = File.ReadAllText(SavePath);
         return JsonConvert.DeserializeObject<GameSaveData>(json);
     }
@@ -101,7 +96,6 @@ public class SaveManager : MonoBehaviour
     public void ApplySave(GameSaveData data)
     {
         if (data == null) return;
-
         var fm = FinanceManager.Instance;
         var tm = GameTimeManager.Instance;
         var wm = WageManager.Instance;
@@ -115,19 +109,11 @@ public class SaveManager : MonoBehaviour
             fm.roadAssetsValue = data.roadAssetsValue;
         }
 
-        if (wm != null)
-            wm.currentWage = data.currentWage;
+        if (wm != null) wm.currentWage = data.currentWage;
+        tm?.SetDate(data.saveYear, data.saveMonth, data.saveDay, data.saveHour);
 
-        // Відновити ігровий час
-        // (GameTimeManager не має публічного сеттера дати —
-        //  додамо метод SetDate)
-        tm?.SetDate(data.saveYear, data.saveMonth,
-                    data.saveDay, data.saveHour);
-
-        // Відновити стан ТЗ
         var vehicle = FindFirstObjectByType<VehicleController>();
-        if (vehicle != null)
-            vehicle.condition = data.vehicleCondition;
+        if (vehicle != null) vehicle.condition = data.vehicleCondition;
 
         Debug.Log("Гру відновлено!");
     }

@@ -9,66 +9,82 @@ public class CityInfoPanel : MonoBehaviour
     public GameObject panelObj;
     public TextMeshProUGUI cityNameText;
     public TextMeshProUGUI demandsListText;
-    public Button btnBuildGarage;
+
+    public Button btnBuildWorkshop;
     public Button btnHireMechanic;
     public Button btnCreateRoute;
-
-    [Header("Кнопка закриття")]
     public Button btnClose;
 
-    // Публічна властивість (з приватним сетом), щоб Магазин міг перевірити відкрите місто
     public CityNode SelectedCity { get; private set; }
 
     private void Awake()
     {
         Instance = this;
-        panelObj.SetActive(false);
-
-        // Підписуємо кнопку закриття
-        if (btnClose != null)
-        {
-            btnClose.onClick.RemoveAllListeners();
-            btnClose.onClick.AddListener(ClosePanel);
-        }
+        if (panelObj != null) panelObj.SetActive(false);
+        if (btnClose != null) btnClose.onClick.AddListener(ClosePanel);
     }
 
     public void OpenPanel(CityNode city)
     {
         SelectedCity = city;
-        cityNameText.text = city.cityName;
-        panelObj.SetActive(true);
+        if (cityNameText != null) cityNameText.text = city.cityName;
+        if (panelObj != null) panelObj.SetActive(true);
         RefreshUI();
     }
 
     public void ClosePanel()
     {
-        panelObj.SetActive(false);
-        SelectedCity = null; // Очищаємо вибране місто при закритті
+        if (panelObj != null) panelObj.SetActive(false);
+        SelectedCity = null;
     }
 
     private void RefreshUI()
     {
         if (SelectedCity == null) return;
 
-        btnBuildGarage.interactable = !SelectedCity.hasGarage;
-        btnHireMechanic.interactable = SelectedCity.hasGarage;
+        TextMeshProUGUI workshopBtnText = btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>();
 
-        btnBuildGarage.onClick.RemoveAllListeners();
-        btnBuildGarage.onClick.AddListener(() => { SelectedCity.BuildGarage(); RefreshUI(); });
+        if (SelectedCity.hasWorkshop)
+        {
+            if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
+            btnBuildWorkshop.interactable = true;
+            btnBuildWorkshop.onClick.RemoveAllListeners();
+            btnBuildWorkshop.onClick.AddListener(() =>
+            {
+                if (WorkshopPanel.Instance != null) WorkshopPanel.Instance.OpenPanel(SelectedCity);
+            });
+        }
+        else
+        {
+            if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
+            btnBuildWorkshop.interactable = true;
+            btnBuildWorkshop.onClick.RemoveAllListeners();
+            btnBuildWorkshop.onClick.AddListener(() =>
+            {
+                SelectedCity.BuildWorkshop();
+                RefreshUI();
+            });
+        }
 
+        btnHireMechanic.interactable = SelectedCity.hasWorkshop;
         btnHireMechanic.onClick.RemoveAllListeners();
         btnHireMechanic.onClick.AddListener(() => { SelectedCity.HireMechanic(); RefreshUI(); });
 
         btnCreateRoute.onClick.RemoveAllListeners();
         btnCreateRoute.onClick.AddListener(() => {
             ClosePanel();
-            RouteBuilderPanel.Instance.OpenPanel();
+            if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel();
         });
 
-        // Виведення списку попиту
-        string ds = "";
+        // ВИВІД НОВОГО ПОПИТУ З РОЗДІЛЕННЯМ (Вантаж / Пасажири)
+        string ds = "Попит:\n";
         foreach (var d in SelectedCity.demands)
-            ds += $"В {d.destination.cityName}: {d.currentUnits}/{d.maxUnits}\n";
-        demandsListText.text = ds;
+        {
+            ds += $"<b>До: {d.destination.cityName}</b>\n";
+            ds += $"  Вантажі: {d.currentCargo}/{d.maxCargo}\n";
+            ds += $"  Пасажири: {d.currentPassengers}/{d.maxPassengers}\n";
+        }
+
+        if (demandsListText != null) demandsListText.text = ds;
     }
 }
