@@ -42,47 +42,60 @@ public class CityInfoPanel : MonoBehaviour
     {
         if (SelectedCity == null) return;
 
-        TextMeshProUGUI workshopBtnText = btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>();
-
-        if (SelectedCity.hasWorkshop)
+        if (btnBuildWorkshop != null)
         {
-            if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
-            btnBuildWorkshop.interactable = true;
-            btnBuildWorkshop.onClick.RemoveAllListeners();
-            btnBuildWorkshop.onClick.AddListener(() =>
+            TextMeshProUGUI workshopBtnText = btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>();
+
+            if (SelectedCity.hasWorkshop)
             {
-                if (WorkshopPanel.Instance != null) WorkshopPanel.Instance.OpenPanel(SelectedCity);
+                if (workshopBtnText != null) workshopBtnText.text = "Майстерня";
+                btnBuildWorkshop.interactable = true;
+                btnBuildWorkshop.onClick.RemoveAllListeners();
+                btnBuildWorkshop.onClick.AddListener(() =>
+                {
+                    if (WorkshopPanel.Instance != null) WorkshopPanel.Instance.OpenPanel(SelectedCity);
+                });
+            }
+            else
+            {
+                if (workshopBtnText != null) workshopBtnText.text = "Майстерня (25 тис)";
+                btnBuildWorkshop.interactable = true;
+                btnBuildWorkshop.onClick.RemoveAllListeners();
+                btnBuildWorkshop.onClick.AddListener(() =>
+                {
+                    SelectedCity.BuildWorkshop();
+                    RefreshUI();
+                });
+            }
+        }
+
+        // Прибираємо кнопку найму механіка з цієї панелі (згідно запиту)
+        if (btnHireMechanic != null)
+        {
+            btnHireMechanic.gameObject.SetActive(false);
+        }
+
+        if (btnCreateRoute != null)
+        {
+            btnCreateRoute.onClick.RemoveAllListeners();
+            btnCreateRoute.onClick.AddListener(() => {
+                var startCity = SelectedCity;
+                ClosePanel();
+                if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel(startCity);
             });
         }
-        else
-        {
-            if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
-            btnBuildWorkshop.interactable = true;
-            btnBuildWorkshop.onClick.RemoveAllListeners();
-            btnBuildWorkshop.onClick.AddListener(() =>
-            {
-                SelectedCity.BuildWorkshop();
-                RefreshUI();
-            });
-        }
 
-        btnHireMechanic.interactable = SelectedCity.hasWorkshop;
-        btnHireMechanic.onClick.RemoveAllListeners();
-        btnHireMechanic.onClick.AddListener(() => { SelectedCity.HireMechanic(); RefreshUI(); });
-
-        btnCreateRoute.onClick.RemoveAllListeners();
-        btnCreateRoute.onClick.AddListener(() => {
-            ClosePanel();
-            if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel();
-        });
-
-        // ВИВІД НОВОГО ПОПИТУ З РОЗДІЛЕННЯМ (Вантаж / Пасажири)
         string ds = "Попит:\n";
-        foreach (var d in SelectedCity.demands)
+        if (SelectedCity.demands != null)
         {
-            ds += $"<b>До: {d.destination.cityName}</b>\n";
-            ds += $"  Вантажі: {d.currentCargo}/{d.maxCargo}\n";
-            ds += $"  Пасажири: {d.currentPassengers}/{d.maxPassengers}\n";
+            foreach (var d in SelectedCity.demands)
+            {
+                if (d == null || d.destination == null) continue;
+
+                ds += $"<b>До: {d.destination.cityName}</b>\n";
+                ds += $"  Вантажі: {d.currentCargo}/{d.maxCargo}\n";
+                ds += $"  Пасажири: {d.currentPassengers}/{d.maxPassengers}\n";
+            }
         }
 
         if (demandsListText != null) demandsListText.text = ds;

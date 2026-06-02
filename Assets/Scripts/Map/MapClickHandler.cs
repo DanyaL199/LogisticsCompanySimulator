@@ -3,15 +3,12 @@ using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
-/// <summary>
-/// Обробляє кліки на карті як під час побудови маршруту, так і у звичайному режимі (відкриття інфо міста).
-/// </summary>
 public class MapClickHandler : MonoBehaviour
 {
     public static MapClickHandler Instance { get; private set; }
 
     [Header("Налаштування кліку")]
-    public float clickRadius = 0.6f;
+    public float fallbackClickRadius = 0.6f;
 
     [Header("Підсвітка міста при наведенні")]
     public Color hoverColor = new Color(1f, 1f, 0f, 1f);
@@ -39,11 +36,17 @@ public class MapClickHandler : MonoBehaviour
         allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
     }
 
-    public void StartBuilding()
+    // Додано підтримку стартового міста
+    public void StartBuilding(CityNode startCity = null)
     {
         IsActive = true;
         selectedCities.Clear();
         ClearPreviewLines();
+
+        if (startCity != null)
+        {
+            AddCity(startCity);
+        }
     }
 
     public void StopBuilding()
@@ -57,7 +60,6 @@ public class MapClickHandler : MonoBehaviour
 
     private void Update()
     {
-        // ВАЖЛИВО: Не реагувати на кліки/наведення по карті, якщо курсор/натискання зараз над UI-панеллю!
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
@@ -77,6 +79,7 @@ public class MapClickHandler : MonoBehaviour
     private void HandleHover()
     {
         CityNode nearest = GetCityUnderCursor();
+
         if (nearest == hoveredCity) return;
 
         if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
@@ -95,8 +98,6 @@ public class MapClickHandler : MonoBehaviour
 
         if (!IsActive)
         {
-            // --- ЗВИЧАЙНИЙ РЕЖИМ ---
-            // Клік по місту відкриває інформаційну панель міста
             if (CityInfoPanel.Instance != null)
             {
                 CityInfoPanel.Instance.OpenPanel(city);
@@ -104,7 +105,6 @@ public class MapClickHandler : MonoBehaviour
             return;
         }
 
-        // --- РЕЖИМ ПОБУДОВИ МАРШРУТУ ---
         if (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && selectedCities.Contains(city))
         {
             RemoveCity(city);
@@ -218,17 +218,23 @@ public class MapClickHandler : MonoBehaviour
 
     private CityNode GetCityUnderCursor()
     {
-        if (allCities == null || allCities.Length == 0) return null;
-        if (Mouse.current == null) return null;
+        if (Mouse.current == null || Camera.main == null) return null;
 
         Vector2 screenPos = Mouse.current.position.ReadValue();
-        if (Camera.main == null) return null;
-
         Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 0f));
         worldPos.z = 0f;
 
+        Collider2D hit = Physics2D.OverlapPoint(worldPos);
+        if (hit != null)
+        {
+            CityNode hitCity = hit.GetComponent<CityNode>();
+            if (hitCity != null) return hitCity;
+        }
+
+        if (allCities == null || allCities.Length == 0) return null;
+
         CityNode nearest = null;
-        float minDist = clickRadius;
+        float minDist = fallbackClickRadius;
 
         foreach (var city in allCities)
         {

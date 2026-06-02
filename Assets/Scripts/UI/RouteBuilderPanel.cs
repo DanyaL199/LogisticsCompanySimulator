@@ -8,8 +8,6 @@ public class RouteBuilderPanel : MonoBehaviour
 {
     public static RouteBuilderPanel Instance { get; private set; }
 
-    // ─── Inspector ───────────────────────────────────────────
-
     [Header("Кореневий об'єкт панелі")]
     public GameObject panelRoot;
 
@@ -31,20 +29,14 @@ public class RouteBuilderPanel : MonoBehaviour
     public Button btnCancel;
 
     [Header("Префаб маршруту (RouteDefinition + RouteVisualizer)")]
-    [Tooltip("Якщо пусто — створюється без підсвітки")]
     public GameObject routePrefab;
 
     [Header("Батько для нових маршрутів у Hierarchy")]
     public Transform routesParent;
 
-    // ─── Константи ───────────────────────────────────────────
     private const float KM_PER_UNIT = 50f;
-
-    // ─── Стан ────────────────────────────────────────────────
     private List<CityNode> currentStops = new List<CityNode>();
     private List<GameObject> stopRows = new List<GameObject>();
-
-    // ─── Lifecycle ───────────────────────────────────────────
 
     private void Awake()
     {
@@ -54,7 +46,7 @@ public class RouteBuilderPanel : MonoBehaviour
 
     private void Start()
     {
-        btnNewRoute?.onClick.AddListener(OpenPanel);
+        btnNewRoute?.onClick.AddListener(() => OpenPanel(null));
         btnConfirm?.onClick.AddListener(OnConfirm);
         btnCancel?.onClick.AddListener(OnCancel);
         panelRoot?.SetActive(false);
@@ -63,22 +55,20 @@ public class RouteBuilderPanel : MonoBehaviour
 
     private void Update()
     {
-        // Backspace — видалити останнє місто
         if (panelRoot != null && panelRoot.activeSelf)
             if (Keyboard.current != null && Keyboard.current.backspaceKey.wasPressedThisFrame)
                 RemoveLastCity();
     }
 
-    // ─── Відкрити / закрити ──────────────────────────────────
-
-    public void OpenPanel()
+    // Перевантажений метод, який одразу призначає обране місто першим і відправляє його в малювальник
+    public void OpenPanel(CityNode startCity = null)
     {
         currentStops.Clear();
         ClearStopRows();
         SetWarning("");
         UpdateDistanceText();
         panelRoot?.SetActive(true);
-        MapClickHandler.Instance?.StartBuilding();
+        MapClickHandler.Instance?.StartBuilding(startCity);
     }
 
     private void ClosePanel()
@@ -86,8 +76,6 @@ public class RouteBuilderPanel : MonoBehaviour
         panelRoot?.SetActive(false);
         MapClickHandler.Instance?.StopBuilding();
     }
-
-    // ─── Callbacks від MapClickHandler ───────────────────────
 
     public void OnCityAdded(CityNode city, List<CityNode> current)
     {
@@ -105,8 +93,6 @@ public class RouteBuilderPanel : MonoBehaviour
         ValidateRoute();
     }
 
-    // ─── Видалення міст ──────────────────────────────────────
-
     private void RemoveLastCity()
     {
         if (currentStops.Count == 0) return;
@@ -115,7 +101,6 @@ public class RouteBuilderPanel : MonoBehaviour
         RebuildStopRows();
         UpdateDistanceText();
         ValidateRoute();
-        // Повідомити MapClickHandler
         MapClickHandler.Instance?.RemoveCityExternal(last, currentStops);
     }
 
@@ -129,8 +114,6 @@ public class RouteBuilderPanel : MonoBehaviour
         ValidateRoute();
         MapClickHandler.Instance?.RemoveCityExternal(city, currentStops);
     }
-
-    // ─── Список рядків зупинок ───────────────────────────────
 
     private void RebuildStopRows()
     {
@@ -149,14 +132,12 @@ public class RouteBuilderPanel : MonoBehaviour
             }
             else
             {
-                // Якщо prefab не призначений — створюємо мінімальний рядок
                 row = new GameObject($"StopRow_{i}", typeof(RectTransform));
                 if (stopsListParent != null)
                     row.transform.SetParent(stopsListParent, false);
                 var rt = row.GetComponent<RectTransform>();
                 rt.sizeDelta = new Vector2(0, 28);
 
-                // Текст назви міста
                 var textObj = new GameObject("Label", typeof(RectTransform));
                 textObj.transform.SetParent(row.transform, false);
                 var textRT = textObj.GetComponent<RectTransform>();
@@ -169,7 +150,6 @@ public class RouteBuilderPanel : MonoBehaviour
                 tmp.color = Color.white;
                 tmp.alignment = TextAlignmentOptions.MidlineLeft;
 
-                // Кнопка X
                 var btnObj = new GameObject("BtnRemove", typeof(RectTransform));
                 btnObj.transform.SetParent(row.transform, false);
                 var btnRT = btnObj.GetComponent<RectTransform>();
@@ -193,13 +173,11 @@ public class RouteBuilderPanel : MonoBehaviour
                 btn.onClick.AddListener(() => RemoveCityAt(captured));
             }
 
-            // Заповнити текст якщо є prefab зі стандартною структурою
             var labelTMP = row.transform.Find("Label")?.GetComponent<TextMeshProUGUI>();
             if (labelTMP == null) labelTMP = row.GetComponentInChildren<TextMeshProUGUI>();
             if (labelTMP != null)
                 labelTMP.text = $"{i + 1}. {GetTypeTag(city.cityType)} {city.cityName}";
 
-            // Кнопка X у prefab (якщо є)
             var removeBtn = row.transform.Find("BtnRemove")?.GetComponent<Button>();
             if (removeBtn != null)
             {
@@ -210,7 +188,6 @@ public class RouteBuilderPanel : MonoBehaviour
             stopRows.Add(row);
         }
 
-        // Рядок замикання кільця (лише текст, не кнопка)
         if (currentStops.Count >= 2)
         {
             var closingRow = CreateLabelRow($"(коло) -> {currentStops[0].cityName}",
@@ -247,8 +224,6 @@ public class RouteBuilderPanel : MonoBehaviour
         stopRows.Clear();
     }
 
-    // ─── Відстань ────────────────────────────────────────────
-
     private void UpdateDistanceText()
     {
         if (distanceText == null) return;
@@ -268,8 +243,6 @@ public class RouteBuilderPanel : MonoBehaviour
         }
         distanceText.text = $"Відстань кола: {totalKm:F0} км";
     }
-
-    // ─── Валідація ───────────────────────────────────────────
 
     private void ValidateRoute()
     {
@@ -295,8 +268,6 @@ public class RouteBuilderPanel : MonoBehaviour
         return null;
     }
 
-    // ─── Confirm / Cancel ────────────────────────────────────
-
     private void OnConfirm()
     {
         if (currentStops.Count < 2)
@@ -313,17 +284,13 @@ public class RouteBuilderPanel : MonoBehaviour
         RouteDefinition route = CreateRouteDefinition();
         if (route == null) { SetWarning("Помилка створення маршруту."); return; }
 
-        Debug.Log($"[RouteBuilderPanel] Маршрут '{route.routeName}' створено. Призначте транспорт через панель маршрутів.");
+        Debug.Log($"[RouteBuilderPanel] Маршрут '{route.routeName}' створено.");
 
-        // Повідомити панель маршрутів якщо є
         RoutesPanel.Instance?.OnRouteCreated(route);
-
         ClosePanel();
     }
 
     private void OnCancel() => ClosePanel();
-
-    // ─── Створення RouteDefinition ───────────────────────────
 
     private RouteDefinition CreateRouteDefinition()
     {
@@ -352,8 +319,6 @@ public class RouteBuilderPanel : MonoBehaviour
 
         return route;
     }
-
-    // ─── Допоміжні ───────────────────────────────────────────
 
     private void SetWarning(string msg)
     {

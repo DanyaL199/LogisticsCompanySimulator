@@ -1212,7 +1212,8 @@ public class MapClickHandler : MonoBehaviour
     public static MapClickHandler Instance { get; private set; }
 
     [Header("Налаштування кліку")]
-    public float clickRadius = 0.6f;
+    [Tooltip("Використовується, якщо на місті раптом немає CircleCollider2D")]
+    public float fallbackClickRadius = 0.6f;
 
     [Header("Підсвітка міста при наведенні")]
     public Color hoverColor = new Color(1f, 1f, 0f, 1f);
@@ -1278,6 +1279,7 @@ public class MapClickHandler : MonoBehaviour
     private void HandleHover()
     {
         CityNode nearest = GetCityUnderCursor();
+
         if (nearest == hoveredCity) return;
 
         if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
@@ -1297,7 +1299,6 @@ public class MapClickHandler : MonoBehaviour
         if (!IsActive)
         {
             // --- ЗВИЧАЙНИЙ РЕЖИМ ---
-            // Клік по місту відкриває інформаційну панель міста
             if (CityInfoPanel.Instance != null)
             {
                 CityInfoPanel.Instance.OpenPanel(city);
@@ -1419,17 +1420,25 @@ public class MapClickHandler : MonoBehaviour
 
     private CityNode GetCityUnderCursor()
     {
-        if (allCities == null || allCities.Length == 0) return null;
-        if (Mouse.current == null) return null;
+        if (Mouse.current == null || Camera.main == null) return null;
 
         Vector2 screenPos = Mouse.current.position.ReadValue();
-        if (Camera.main == null) return null;
-
         Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 0f));
         worldPos.z = 0f;
 
+        // 1. Спочатку перевіряємо ідеально по CircleCollider2D
+        Collider2D hit = Physics2D.OverlapPoint(worldPos);
+        if (hit != null)
+        {
+            CityNode hitCity = hit.GetComponent<CityNode>();
+            if (hitCity != null) return hitCity;
+        }
+
+        // 2. Fallback на випадок якщо ми забули навісити колайдер
+        if (allCities == null || allCities.Length == 0) return null;
+
         CityNode nearest = null;
-        float minDist = clickRadius;
+        float minDist = fallbackClickRadius;
 
         foreach (var city in allCities)
         {
@@ -1891,47 +1900,65 @@ public class CityInfoPanel : MonoBehaviour
     {
         if (SelectedCity == null) return;
 
-        TextMeshProUGUI workshopBtnText = btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>();
-
-        if (SelectedCity.hasWorkshop)
+        // БЕЗПЕЧНИЙ ВИКЛИК (ЗАХИСТ ВІД NULL)
+        if (btnBuildWorkshop != null)
         {
-            if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
-            btnBuildWorkshop.interactable = true;
-            btnBuildWorkshop.onClick.RemoveAllListeners();
-            btnBuildWorkshop.onClick.AddListener(() =>
+            TextMeshProUGUI workshopBtnText = btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>();
+
+            if (SelectedCity.hasWorkshop)
             {
-                if (WorkshopPanel.Instance != null) WorkshopPanel.Instance.OpenPanel(SelectedCity);
+                if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
+                btnBuildWorkshop.interactable = true;
+                btnBuildWorkshop.onClick.RemoveAllListeners();
+                btnBuildWorkshop.onClick.AddListener(() =>
+                {
+                    if (WorkshopPanel.Instance != null) WorkshopPanel.Instance.OpenPanel(SelectedCity);
+                });
+            }
+            else
+            {
+                if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
+                btnBuildWorkshop.interactable = true;
+                btnBuildWorkshop.onClick.RemoveAllListeners();
+                btnBuildWorkshop.onClick.AddListener(() =>
+                {
+                    SelectedCity.BuildWorkshop();
+                    RefreshUI();
+                });
+            }
+        }
+
+        // ЗАХИСТ ВІД NULL ДЛЯ КНОПКИ НАЙМУ
+        if (btnHireMechanic != null)
+        {
+            btnHireMechanic.interactable = SelectedCity.hasWorkshop;
+            btnHireMechanic.onClick.RemoveAllListeners();
+            btnHireMechanic.onClick.AddListener(() => { SelectedCity.HireMechanic(); RefreshUI(); });
+        }
+
+        // ЗАХИСТ ВІД NULL ДЛЯ МАРШРУТУ
+        if (btnCreateRoute != null)
+        {
+            btnCreateRoute.onClick.RemoveAllListeners();
+            btnCreateRoute.onClick.AddListener(() => {
+                ClosePanel();
+                if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel();
             });
         }
-        else
-        {
-            if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
-            btnBuildWorkshop.interactable = true;
-            btnBuildWorkshop.onClick.RemoveAllListeners();
-            btnBuildWorkshop.onClick.AddListener(() =>
-            {
-                SelectedCity.BuildWorkshop();
-                RefreshUI();
-            });
-        }
 
-        btnHireMechanic.interactable = SelectedCity.hasWorkshop;
-        btnHireMechanic.onClick.RemoveAllListeners();
-        btnHireMechanic.onClick.AddListener(() => { SelectedCity.HireMechanic(); RefreshUI(); });
-
-        btnCreateRoute.onClick.RemoveAllListeners();
-        btnCreateRoute.onClick.AddListener(() => {
-            ClosePanel();
-            if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel();
-        });
-
-        // ВИВІД НОВОГО ПОПИТУ З РОЗДІЛЕННЯМ (Вантаж / Пасажири)
+        // ЗАХИСТ ВІД NULL (Якщо місто випадково має пусте "призначення" попиту)
         string ds = "Попит:\n";
-        foreach (var d in SelectedCity.demands)
+        if (SelectedCity.demands != null)
         {
-            ds += $"<b>До: {d.destination.cityName}</b>\n";
-            ds += $"  Вантажі: {d.currentCargo}/{d.maxCargo}\n";
-            ds += $"  Пасажири: {d.currentPassengers}/{d.maxPassengers}\n";
+            foreach (var d in SelectedCity.demands)
+            {
+                // Захист: якщо під час генерації якесь місто лишилося порожнім 
+                if (d == null || d.destination == null) continue;
+
+                ds += $"<b>До: {d.destination.cityName}</b>\n";
+                ds += $"  Вантажі: {d.currentCargo}/{d.maxCargo}\n";
+                ds += $"  Пасажири: {d.currentPassengers}/{d.maxPassengers}\n";
+            }
         }
 
         if (demandsListText != null) demandsListText.text = ds;

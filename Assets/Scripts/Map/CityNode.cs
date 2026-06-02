@@ -174,9 +174,9 @@ public class CityNode : MonoBehaviour
 
     public void BuildWorkshop()
     {
-        if (FinanceManager.Instance.CanAfford(50000f))
+        if (FinanceManager.Instance.CanAfford(25000f))
         {
-            FinanceManager.Instance.AddExpense(50000f);
+            FinanceManager.Instance.AddExpense(25000f);
             hasWorkshop = true;
         }
     }
