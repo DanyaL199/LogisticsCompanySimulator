@@ -81,7 +81,14 @@ public class FleetPanelController : MonoBehaviour
             GameObject row = activeRows[i];
 
             var nameText = row.transform.Find("Name_Text")?.GetComponent<TextMeshProUGUI>();
-            if (nameText) nameText.text = v.vehicleData != null ? v.vehicleData.vehicleName : "Транспорт";
+            if (nameText) nameText.text = v.vehicleData != null ? $"{v.vehicleData.vehicleName}\n<size=80%>{v.customName}</size>" : "Транспорт";
+
+            var infoText = row.transform.Find("Info_Text")?.GetComponent<TextMeshProUGUI>();
+            if (infoText)
+            {
+                string loadInfo = v.currentLoad > 0 ? $"Вантаж: {v.currentLoad}/{v.vehicleData?.maxCapacity}" : "Порожній";
+                infoText.text = $"Швидкість: {v.vehicleData?.maxSpeedKmh} км/год | Пальне: {v.vehicleData?.fuelPer100km} л\n{loadInfo}";
+            }
 
             var statusText = row.transform.Find("Status_Text")?.GetComponent<TextMeshProUGUI>();
             if (statusText) statusText.text = $"{v.status} ({v.condition:F0}%)";
@@ -96,7 +103,7 @@ public class FleetPanelController : MonoBehaviour
                 repairBtn.gameObject.SetActive(true);
                 repairBtn.onClick.RemoveAllListeners();
                 repairBtn.onClick.AddListener(() => v.RequestRepair());
-                repairBtn.interactable = v.condition <= 0f && v.status == VehicleStatus.Broken; // Працює тільки для евакуації
+                repairBtn.interactable = v.condition <= 30f || v.status == VehicleStatus.Broken; // Можна і заздалегідь на ремонт
             }
 
             // "Продати"
@@ -128,10 +135,11 @@ public class FleetPanelController : MonoBehaviour
         for (int i = 0; i < allRoutes.Length; i++)
         {
             var route = allRoutes[i];
-            options.Add($"{route.routeName} (Зупинок: {route.stops.Count})");
+            string shortName = route.routeName.Length > 20 ? route.routeName.Substring(0, 18) + "..." : route.routeName;
+            options.Add($"{shortName} ({route.stops.Count})");
+            // Highlight route assigned to the vehicle
             if (v.activeRoute == route || v.status == VehicleStatus.ReturningToWorkshop)
             {
-                // Якщо їде на ремонт — тримаємо його вибраним візуально як "приписаний"
                 if (v.activeRoute == route || (v.status == VehicleStatus.ReturningToWorkshop))
                     currentIndex = i + 1;
             }

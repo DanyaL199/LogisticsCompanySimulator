@@ -21,8 +21,11 @@ public class RoutesPanel : MonoBehaviour
     public Button btnToggle;
     public Button btnClose;
 
+    // Всі відомі маршрути (додаються при створенні або знаходяться на старті)
     private List<RouteDefinition> routes = new List<RouteDefinition>();
     private List<GameObject> rows = new List<GameObject>();
+
+    // ─── Lifecycle ───────────────────────────────────────────
 
     private void Awake()
     {
@@ -36,10 +39,13 @@ public class RoutesPanel : MonoBehaviour
         btnClose?.onClick.AddListener(TogglePanel);
         panelRoot?.SetActive(false);
 
+        // Знайти вже існуючі маршрути на сцені
         var existing = FindObjectsByType<RouteDefinition>(FindObjectsSortMode.None);
         foreach (var r in existing)
             if (!routes.Contains(r)) routes.Add(r);
     }
+
+    // ─── Відкрити / закрити ──────────────────────────────────
 
     private void TogglePanel()
     {
@@ -48,11 +54,14 @@ public class RoutesPanel : MonoBehaviour
         if (next) RebuildRows();
     }
 
+    // ─── Додавання маршруту ───────────────────────────────────
+
     public void OnRouteCreated(RouteDefinition route)
     {
         if (!routes.Contains(route))
             routes.Add(route);
 
+        // Якщо панель відкрита — оновити список
         if (panelRoot != null && panelRoot.activeSelf) RebuildRows();
     }
 
@@ -65,9 +74,8 @@ public class RoutesPanel : MonoBehaviour
 
         if (routes.Count == 0)
         {
-            var empty = CreateLabelRow("Маршрутів ще немає.\nСтворіть перший через кнопку \"Новий маршрут\".",
-                                       new Color(0.6f, 0.6f, 0.6f));
-            rows.Add(empty);
+            rows.Add(CreateLabelRow("Маршрутів ще немає.\nСтворіть перший через кнопку \"Новий маршрут\".",
+                                       new Color(0.6f, 0.6f, 0.6f)));
             return;
         }
 
@@ -200,8 +208,10 @@ public class RoutesPanel : MonoBehaviour
         return obj;
     }
 
+    // ─── Дії ─────────────────────────────────────────────────
     private void OpenAssignPanel(RouteDefinition route)
     {
+        // Знайти вільні ТЗ
         var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
         List<VehicleController> idle = new List<VehicleController>();
         foreach (var v in all)
@@ -213,12 +223,15 @@ public class RoutesPanel : MonoBehaviour
             return;
         }
 
+        // Якщо є тільки один вільний ТЗ — призначаємо одразу
         if (idle.Count == 1)
         {
             AssignVehicle(idle[0], route);
             return;
         }
 
+        // Якщо є кілька — призначити перший і залогувати варіанти
+        // (повноцінний попап — наступний крок)
         Debug.Log($"[RoutesPanel] Знайдено {idle.Count} вільних ТЗ. Призначається перший: {idle[0].vehicleData.vehicleName}");
         AssignVehicle(idle[0], route);
     }
@@ -229,7 +242,7 @@ public class RoutesPanel : MonoBehaviour
         if (ok)
         {
             Debug.Log($"[RoutesPanel] {vehicle.vehicleData.vehicleName} призначено на '{route.routeName}'");
-            RebuildRows();
+            RebuildRows(); // оновити статус у списку
         }
         else
         {
@@ -239,6 +252,7 @@ public class RoutesPanel : MonoBehaviour
 
     private void StopRoute(RouteDefinition route, GameObject row)
     {
+        // Знайти всі ТЗ на цьому маршруті і зупинити
         var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
         foreach (var v in all)
             if (v.activeRoute == route) v.StopRoute();
@@ -256,13 +270,17 @@ public class RoutesPanel : MonoBehaviour
         RouteVisualizer.RebuildAllHighlights();
     }
 
+    // ─── Допоміжні ───────────────────────────────────────────
+
     private string GetRouteStatusText(RouteDefinition route)
     {
+        // Підрахувати скільки ТЗ на цьому маршруті
         var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
         int count = 0;
         foreach (var v in all)
             if (v.activeRoute == route) count++;
 
+        // Зупинки
         string stops = "";
         if (route.stops != null && route.stops.Count > 0)
         {

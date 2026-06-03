@@ -19,7 +19,7 @@ public class CityInfoPanel : MonoBehaviour
 
     public CityNode SelectedCity { get; private set; }
 
-    // --- Список для збереження створених підписів попиту ---
+    // --- Додано: для зберігання підписів попиту над містами ---
     private List<GameObject> demandWorldLabels = new List<GameObject>();
     private float updateTimer = 0f;
     private CityNode lastLabelCity = null;
@@ -33,7 +33,7 @@ public class CityInfoPanel : MonoBehaviour
 
     private void Update()
     {
-        // Періодично оновлюємо числа попиту як на панелі, так і над містами
+        // Оновлюємо інформацію про попит кожні 0.2 сек, щоб не вантажити систему
         if (panelObj != null && panelObj.activeSelf && SelectedCity != null)
         {
             updateTimer += Time.deltaTime;
@@ -52,60 +52,59 @@ public class CityInfoPanel : MonoBehaviour
         if (cityNameText != null) cityNameText.text = city.cityName;
         if (panelObj != null) panelObj.SetActive(true);
         RefreshUI();
-        UpdateDemandWorldLabels(); // Показуємо попит над містами
     }
 
     public void ClosePanel()
     {
         if (panelObj != null) panelObj.SetActive(false);
         SelectedCity = null;
-        ClearDemandWorldLabels(); // Приховуємо текст при закритті
+        ClearDemandWorldLabels(); // Ховаємо підписи при закритті
     }
 
     private void RefreshUI()
     {
         if (SelectedCity == null) return;
 
-        if (btnBuildWorkshop != null)
+        // Майстерня
+        if (SelectedCity.hasWorkshop)
         {
-            TextMeshProUGUI workshopBtnText = btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>();
-
-            if (SelectedCity.hasWorkshop)
+            if (btnBuildWorkshop != null)
             {
-                if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
-                btnBuildWorkshop.interactable = true;
+                btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>().text = "Відкрити Майстерню";
                 btnBuildWorkshop.onClick.RemoveAllListeners();
-                btnBuildWorkshop.onClick.AddListener(() =>
-                {
+                btnBuildWorkshop.onClick.AddListener(() => {
+                    ClosePanel();
                     if (WorkshopPanel.Instance != null) WorkshopPanel.Instance.OpenPanel(SelectedCity);
                 });
             }
-            else
+            if (btnHireMechanic != null) btnHireMechanic.gameObject.SetActive(false);
+        }
+        else
+        {
+            if (btnBuildWorkshop != null)
             {
-                if (workshopBtnText != null) workshopBtnText.text = "Майстерню";
-                btnBuildWorkshop.interactable = true;
+                btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>().text = "Збудувати Майстерню (10 000 у.о.)";
                 btnBuildWorkshop.onClick.RemoveAllListeners();
-                btnBuildWorkshop.onClick.AddListener(() =>
-                {
-                    SelectedCity.BuildWorkshop();
-                    RefreshUI();
+                btnBuildWorkshop.onClick.AddListener(() => {
+                    if (FinanceManager.Instance != null && FinanceManager.Instance.CanAfford(10000))
+                    {
+                        FinanceManager.Instance.AddExpense(10000);
+                        SelectedCity.BuildWorkshop();
+                        RefreshUI();
+                    }
                 });
             }
+            if (btnHireMechanic != null) btnHireMechanic.gameObject.SetActive(false);
         }
 
-        if (btnHireMechanic != null)
-        {
-            btnHireMechanic.interactable = SelectedCity.hasWorkshop;
-            btnHireMechanic.onClick.RemoveAllListeners();
-            btnHireMechanic.onClick.AddListener(() => { SelectedCity.HireMechanic(); RefreshUI(); });
-        }
-
+        // Кнопки маршрутів та доріг
         if (btnCreateRoute != null)
         {
             btnCreateRoute.onClick.RemoveAllListeners();
             btnCreateRoute.onClick.AddListener(() => {
+                CityNode cityToPass = SelectedCity;
                 ClosePanel(); // Закриваємо панель (що прибере і підписи над містами)
-                if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel(SelectedCity);
+                if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel(cityToPass);
             });
         }
 
@@ -113,95 +112,105 @@ public class CityInfoPanel : MonoBehaviour
         {
             btnBuildRoad.onClick.RemoveAllListeners();
             btnBuildRoad.onClick.AddListener(() => {
+                CityNode cityToPass = SelectedCity;
                 ClosePanel();
-                if (RoadBuilderPanel.Instance != null) RoadBuilderPanel.Instance.OpenPanel(SelectedCity);
+                if (RoadBuilderPanel.Instance != null) RoadBuilderPanel.Instance.OpenPanel(cityToPass);
             });
         }
 
         RefreshDemandsText();
+        UpdateDemandWorldLabels(); // Показуємо/оновлюємо підписи попиту на самій карті
     }
 
     private void RefreshDemandsText()
     {
-        if (SelectedCity == null) return;
-        string ds = "Доступно для перевезення:\n";
-        if (SelectedCity.demands != null)
+        if (demandsListText == null || SelectedCity == null || SelectedCity.demands == null) return;
+        string txt = "Попит:\n";
+        foreach (var d in SelectedCity.demands)
         {
-            foreach (var d in SelectedCity.demands)
+            if (d.destination != null && d.currentCargo > 0)
             {
-                if (d == null || d.destination == null) continue;
-
-                ds += $"<b>До: {d.destination.cityName}</b>\n";
-                ds += $"  Вантажі: {d.currentCargo} / {d.maxCargo}\n";
-                ds += $"  Пасажири: {d.currentPassengers} / {d.maxPassengers}\n";
+                txt += $"- до {d.destination.cityName}: {Mathf.FloorToInt(d.currentCargo)}/{d.maxCargo} кг\n";
             }
         }
-
-        if (demandsListText != null) demandsListText.text = ds;
+        demandsListText.text = txt;
     }
-
-    // --- ЛОГІКА ДИНАМІЧНОГО ТЕКСТУ НАД МІСТАМИ ---
 
     private void UpdateDemandWorldLabels()
     {
-        if (SelectedCity == null || SelectedCity.demands == null)
-        {
-            ClearDemandWorldLabels();
-            lastLabelCity = null;
-            return;
-        }
+        if (SelectedCity == null || SelectedCity.demands == null) return;
 
-        // Якщо змінили вибране місто АБО кількість міст-призначень змінилася, перестворюємо об'єкти
-        if (demandWorldLabels.Count != SelectedCity.demands.Count || lastLabelCity != SelectedCity)
+        // Якщо обрали інше місто - чистимо старі підписи
+        if (lastLabelCity != SelectedCity)
         {
             ClearDemandWorldLabels();
             lastLabelCity = SelectedCity;
+        }
 
-            for (int i = 0; i < SelectedCity.demands.Count; i++)
+        int i = 0;
+        foreach (var d in SelectedCity.demands)
+        {
+            if (d.destination != null && d.currentCargo > 0)
             {
-                var d = SelectedCity.demands[i];
-                if (d == null || d.destination == null) continue;
+                // Якщо не вистачає плашок - створюємо нову
+                if (i >= demandWorldLabels.Count)
+                {
+                    demandWorldLabels.Add(CreateDemandLabel());
+                }
 
-                // Створюємо порожній об'єкт і вішаємо на нього TextMeshPro
-                GameObject labelObj = new GameObject($"DemandLabel_{d.destination.cityName}");
-                // Встановлюємо позицію вище за місто призначення
-                labelObj.transform.position = d.destination.transform.position + new Vector3(0, 1.2f, 0);
+                GameObject labelObj = demandWorldLabels[i];
+                labelObj.SetActive(true);
 
-                var tmp = labelObj.AddComponent<TextMeshPro>();
-                tmp.fontSize = 2.5f;
-                tmp.alignment = TextAlignmentOptions.Center;
-                tmp.sortingOrder = 15; // Щоб текст перекривав дороги та інше
+                // Ставимо плашку над містом-призначенням
+                // (або збоку від нього, щоб не перекривати)
+                labelObj.transform.position = d.destination.transform.position + new Vector3(0, 0.8f, 0);
 
-                demandWorldLabels.Add(labelObj);
+                var tmp = labelObj.GetComponent<TextMeshPro>();
+                if (tmp != null)
+                {
+                    // Вантаж: В | Пасажири: П (поки що просто вантаж)
+                    tmp.text = $"<color=#FFAA00>В: {Mathf.FloorToInt(d.currentCargo)}</color> | <color=#00AAFF>П: {Mathf.FloorToInt(d.currentPassengers)}</color>";
+                }
+
+                i++;
             }
         }
 
-        // Оновлюємо числа, їхній колір та позицію
-        for (int i = 0; i < demandWorldLabels.Count; i++)
+        // Ховаємо зайві плашки
+        for (; i < demandWorldLabels.Count; i++)
         {
-            if (i >= SelectedCity.demands.Count) break;
-            var d = SelectedCity.demands[i];
-            var obj = demandWorldLabels[i];
-            if (obj == null || d == null || d.destination == null) continue;
-
-            // !!ВАЖЛИВО!!: Оновлюємо позицію щоб текст завжди був над потрібним містом 
-            obj.transform.position = d.destination.transform.position + new Vector3(0, 1.2f, 0);
-
-            var tmp = obj.GetComponent<TextMeshPro>();
-            if (tmp != null)
-            {
-                // В жовтому кольорі вантажі, в блакитному — пасажири
-                tmp.text = $"<b><color=#FFDB58>В: {d.currentCargo}</color> | <color=#00BFFF>П: {d.currentPassengers}</color></b>";
-            }
+            demandWorldLabels[i].SetActive(false);
         }
     }
 
     private void ClearDemandWorldLabels()
     {
-        foreach (var obj in demandWorldLabels)
+        foreach (var lbl in demandWorldLabels)
         {
-            if (obj != null) Destroy(obj);
+            if (lbl != null) Destroy(lbl);
         }
         demandWorldLabels.Clear();
+    }
+
+    private GameObject CreateDemandLabel()
+    {
+        GameObject obj = new GameObject("DemandLabel");
+
+        // Робимо його дитиною нашого UI або просто в корні сцени
+        // Оскільки це TextMeshPro (не UGUI), він житиме у світових координатах
+
+        var tmp = obj.AddComponent<TextMeshPro>();
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.fontSize = 2.5f;
+        tmp.color = Color.white;
+
+        // Можна додати обведення для кращої видимості на фоні трави
+        tmp.outlineWidth = 0.2f;
+        tmp.outlineColor = Color.black;
+
+        // Щоб рендерилося поверх усього (опціонально)
+        tmp.sortingOrder = 50;
+
+        return obj;
     }
 }

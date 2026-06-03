@@ -1,8 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.InputSystem;
 using TMPro;
 using System.Collections.Generic;
+using UnityEngine.InputSystem;
 
 public class RoadBuilderPanel : MonoBehaviour
 {
@@ -31,7 +31,8 @@ public class RoadBuilderPanel : MonoBehaviour
 
     private CityNode cityA;
     private CityNode cityB;
-    private const float KM_PER_UNIT = 50f;
+
+    private const float KM_PER_UNIT = 60f;
 
     private void Awake()
     {
@@ -54,36 +55,52 @@ public class RoadBuilderPanel : MonoBehaviour
     {
         if (panelRoot != null && panelRoot.activeSelf)
         {
-            // Якщо вибрано більше 2 міст, обрізаємо
-            var selected = MapClickHandler.Instance?.GetSelectedCities();
-            if (selected != null && selected.Count > 0)
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
-                if (cityA != selected[0])
-                {
-                    cityA = selected[0];
-                    RefreshInfo();
-                }
-
-                if (selected.Count == 2 && cityB != selected[1])
-                {
-                    cityB = selected[1];
-                    RefreshInfo();
-                }
-                else if (selected.Count > 2)
-                {
-                    // Скасовуємо третє виділене місто
-                    MapClickHandler.Instance.RemoveCityExternal(selected[2], new List<CityNode> { cityA, cityB });
-                }
-                else if (selected.Count == 1 && cityB != null)
-                {
-                    cityB = null;
-                    RefreshInfo();
-                }
+                OnCancel();
+                return;
             }
-            else if (cityA != null || cityB != null)
+
+            var selected = MapClickHandler.Instance?.GetSelectedCities();
+            if (selected != null)
             {
-                cityA = cityB = null;
-                RefreshInfo();
+                List<CityNode> virtualSelected = new List<CityNode>();
+                if (cityA != null && !selected.Contains(cityA))
+                {
+                    virtualSelected.Add(cityA);
+                }
+                virtualSelected.AddRange(selected);
+
+                if (virtualSelected.Count > 0)
+                {
+                    if (cityA != virtualSelected[0])
+                    {
+                        cityA = virtualSelected[0];
+                        RefreshInfo();
+                    }
+
+                    if (virtualSelected.Count >= 2 && cityB != virtualSelected[1])
+                    {
+                        cityB = virtualSelected[1];
+                        RefreshInfo();
+                    }
+
+                    if (virtualSelected.Count > 2)
+                    {
+                        if (selected.Count > 0)
+                            MapClickHandler.Instance.RemoveCityExternal(selected[selected.Count - 1], new List<CityNode> { cityA, cityB });
+                    }
+                    else if (virtualSelected.Count == 1 && cityB != null)
+                    {
+                        cityB = null;
+                        RefreshInfo();
+                    }
+                }
+                else if (cityA != null || cityB != null)
+                {
+                    cityA = cityB = null;
+                    RefreshInfo();
+                }
             }
         }
     }
@@ -112,38 +129,42 @@ public class RoadBuilderPanel : MonoBehaviour
     {
         if (roadTypeDropdown == null || RoadNetwork.Instance == null) return;
         roadTypeDropdown.ClearOptions();
+        List<TMP_Dropdown.OptionData> opts = new List<TMP_Dropdown.OptionData>();
 
-        var options = new List<string>();
         foreach (var rt in RoadNetwork.Instance.availableRoadTypes)
         {
-            if (rt != null) options.Add($"{rt.roadName} ({rt.buildCost} у.о.)");
+            opts.Add(new TMP_Dropdown.OptionData($"{rt.roadName} (Шв: {rt.speedLimitKmh}, Варт: {rt.buildCost})"));
         }
-        roadTypeDropdown.AddOptions(options);
+        roadTypeDropdown.AddOptions(opts);
+        roadTypeDropdown.value = 0;
     }
 
     private void RefreshInfo()
     {
-        if (cityAText != null) cityAText.text = cityA ? $"1. {cityA.cityName}" : "1. Оберіть місто А";
-        if (cityBText != null) cityBText.text = cityB ? $"2. {cityB.cityName}" : "2. Оберіть місто Б";
+        if (cityAText != null) cityAText.text = cityA != null ? $"1. {cityA.cityName}" : "1. Оберіть місто А";
+        if (cityBText != null) cityBText.text = cityB != null ? $"2. {cityB.cityName}" : "2. Оберіть місто Б";
 
         if (cityA == null || cityB == null)
         {
             if (distanceText != null) distanceText.text = "Відстань: —";
             btnConfirm.interactable = false;
-            SetWarning("");
+            SetWarning("Виберіть два міста на карті.");
             return;
         }
 
-        float totalKm = Vector3.Distance(cityA.transform.position, cityB.transform.position) * KM_PER_UNIT;
-        if (distanceText != null) distanceText.text = $"Відстань: {totalKm:F0} км";
+        if (cityA == cityB)
+        {
+            if (distanceText != null) distanceText.text = "Відстань: —";
+            btnConfirm.interactable = false;
+            SetWarning("Виберіть різні міста.");
+            return;
+        }
 
-        ValidateRoad();
-    }
+        float distKm = Vector3.Distance(cityA.transform.position, cityB.transform.position) * KM_PER_UNIT;
+        if (distanceText != null) distanceText.text = $"Відстань: {distKm:F0} км";
 
-    private void ValidateRoad()
-    {
-        if (RoadNetwork.Instance == null || RoadNetwork.Instance.availableRoadTypes.Count == 0) return;
-        if (roadTypeDropdown == null) return;
+        btnConfirm.interactable = true;
+        SetWarning("");
 
         int idx = roadTypeDropdown.value;
         if (idx < 0 || idx >= RoadNetwork.Instance.availableRoadTypes.Count) return;
@@ -151,7 +172,8 @@ public class RoadBuilderPanel : MonoBehaviour
         RoadData selectedRoad = RoadNetwork.Instance.availableRoadTypes[idx];
         RoadConnection existing = RoadNetwork.Instance.GetRoad(cityA, cityB);
 
-        float cost = selectedRoad.buildCost;
+        float costMultiplier = distKm / 10f;
+        float cost = selectedRoad.buildCost * costMultiplier;
 
         if (existing != null)
         {
@@ -162,39 +184,45 @@ public class RoadBuilderPanel : MonoBehaviour
                 return;
             }
             float diff = selectedRoad.buildCost - existing.roadData.buildCost;
-            cost = diff > 0 ? diff : 0;
-            SetWarning($"Покращення дороги. Вартість: {cost} у.о.");
+            cost = diff > 0 ? (diff * costMultiplier) : 0;
+            SetWarning($"Покращення дороги. Вартість: {cost:F0} у.о.");
         }
         else
         {
-            SetWarning($"Будівництво нової дороги. Вартість: {cost} у.о.");
+            SetWarning($"Будівництво нової дороги. Вартість: {cost:F0} у.о.");
         }
 
         if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(cost))
         {
-            SetWarning($"Недостатньо коштів! Вартість: {cost} у.о.");
+            SetWarning($"Недостатньо коштів! Вартість: {cost:F0} у.о.");
             btnConfirm.interactable = false;
             return;
         }
-
-        btnConfirm.interactable = true;
     }
 
-    private void OnConfirm()
+    private void SetWarning(string msg)
+    {
+        if (warningText != null) warningText.text = msg;
+    }
+
+    public void OnConfirm()
     {
         if (cityA == null || cityB == null) return;
-
         int idx = roadTypeDropdown.value;
         if (idx < 0 || idx >= RoadNetwork.Instance.availableRoadTypes.Count) return;
 
         RoadData selectedRoad = RoadNetwork.Instance.availableRoadTypes[idx];
 
         RoadConnection existing = RoadNetwork.Instance.GetRoad(cityA, cityB);
-        float cost = selectedRoad.buildCost;
+
+        float distKm = Vector3.Distance(cityA.transform.position, cityB.transform.position) * KM_PER_UNIT;
+        float costMultiplier = distKm / 10f;
+        float cost = selectedRoad.buildCost * costMultiplier;
+
         if (existing != null)
         {
             float diff = selectedRoad.buildCost - existing.roadData.buildCost;
-            cost = diff > 0 ? diff : 0;
+            cost = diff > 0 ? (diff * costMultiplier) : 0;
         }
 
         if (FinanceManager.Instance != null && FinanceManager.Instance.CanAfford(cost))
@@ -208,12 +236,8 @@ public class RoadBuilderPanel : MonoBehaviour
         }
     }
 
-    private void OnCancel() => ClosePanel();
-
-    private void SetWarning(string msg)
+    public void OnCancel()
     {
-        if (warningText == null) return;
-        warningText.text = msg;
-        warningText.gameObject.SetActive(!string.IsNullOrEmpty(msg));
+        ClosePanel();
     }
 }

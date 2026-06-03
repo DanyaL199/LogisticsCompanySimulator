@@ -45,6 +45,14 @@ public class CityNode : MonoBehaviour
 
         CreateLabel();
 
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr != null)
+        {
+            // Зробимо так, щоб міста малювалися над дорогами та їх лініями
+            sr.sortingLayerName = "Roads";
+            sr.sortingOrder = 30;
+        }
+
         // Генеруємо рандомний попит між містами після мікро-затримки (щоб всі міста створились)
         Invoke(nameof(GenerateRandomDemands), 0.1f);
 
@@ -79,21 +87,13 @@ public class CityNode : MonoBehaviour
             d.destination = c;
             d.annualGrowth = Random.Range(0.01f, 0.05f);
 
-            // Чим більший рівень обох міст, тим більший загальний попит між ними
-            int baseTotalDemand = (activityLevel * 45) + (c.activityLevel * 45) + Random.Range(10, 50);
+            // Початковий попит від 80 до 400
+            d.currentCargo = Random.Range(80, 401);
+            d.currentPassengers = Random.Range(80, 401);
 
-            // Визначаємо коефіцієнт (частку вантажів) залежно від типу НАШОГО міста
-            float cargoRatio = 0.5f;
-            if (cityType == CityType.Industrial) cargoRatio = 0.8f;      // 80% Ван. : 20% Пас.
-            else if (cityType == CityType.Tourist) cargoRatio = 0.2f;    // 20% Ван. : 80% Пас.
-            else if (cityType == CityType.Trade) cargoRatio = 0.5f;      // 50% Ван. : 50% Пас.
-
-            d.maxCargo = Mathf.RoundToInt(baseTotalDemand * cargoRatio);
-            d.maxPassengers = Mathf.RoundToInt(baseTotalDemand * (1f - cargoRatio));
-
-            // Даємо трохи початкового накопичення (від 30% до 80% від макс)
-            d.currentCargo = Mathf.RoundToInt(d.maxCargo * Random.Range(0.3f, 0.8f));
-            d.currentPassengers = Mathf.RoundToInt(d.maxPassengers * Random.Range(0.3f, 0.8f));
+            // Максимальний попит в 5 разів більше
+            d.maxCargo = d.currentCargo * 5;
+            d.maxPassengers = d.currentPassengers * 5;
 
             demands.Add(d);
         }
@@ -101,7 +101,7 @@ public class CityNode : MonoBehaviour
 
     private void OnDayChanged(GameDate date)
     {
-        // Щодня попит відновлюється на 10% від максимуму
+        // Щодня попит відновлюється на 10% від максимуму (люди приходять на зупинку, вантажі на склад)
         foreach (var d in demands)
         {
             int replenishC = Mathf.CeilToInt(d.maxCargo * 0.10f);
@@ -136,7 +136,7 @@ public class CityNode : MonoBehaviour
                 repairingHere.Add(v);
         }
 
-        float repairAmountPerHour = (5f + (mechanics * 10f)) / 24f;
+        float repairAmountPerHour = Mathf.Max(0.1f, mechanics * 1f) / 24f; // 1 очко в день за 1 механіка, мінімум 0.1 щоб авто не зависли назавжди без механіків
         foreach (var v in repairingHere)
         {
             v.condition += repairAmountPerHour;
@@ -222,11 +222,12 @@ public class CityNode : MonoBehaviour
         obj.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
         var tmp = obj.AddComponent<TMPro.TextMeshPro>();
         tmp.text = cityName;
-        tmp.fontSize = 8f;
+        tmp.fontSize = 12f;
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
         tmp.color = Color.white;
         tmp.fontStyle = TMPro.FontStyles.Bold;
-        tmp.sortingOrder = 10;
+        tmp.GetComponent<MeshRenderer>().sortingLayerName = "Roads";
+        tmp.GetComponent<MeshRenderer>().sortingOrder = 31;
     }
 
     private void OnDrawGizmos()

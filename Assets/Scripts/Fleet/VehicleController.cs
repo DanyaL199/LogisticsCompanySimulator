@@ -41,10 +41,10 @@ public class VehicleController : MonoBehaviour
     private RouteDefinition pendingRoute;
 
     [Header("Налаштування")]
-    public float visualSpeed = 3f;
+    public float visualSpeed = 1f; 
 
     private const float BASE_RATE = 10f;
-    private const float KM_PER_UNIT = 50f;
+    private const float KM_PER_UNIT = 60f;
     public const float FUEL_PRICE = 1f;
 
     private Tween moveTween;
@@ -55,7 +55,12 @@ public class VehicleController : MonoBehaviour
         if (vehicleData != null && vehicleData.icon != null)
         {
             SpriteRenderer sr = GetComponent<SpriteRenderer>();
-            if (sr != null) sr.sprite = vehicleData.icon;
+            if (sr != null)
+            {
+                sr.sprite = vehicleData.icon;
+                sr.sortingLayerName = "Roads";
+                sr.sortingOrder = 40; // Машинки над містами
+            }
         }
 
         FinanceManager.Instance?.RegisterVehicle(this);
@@ -66,7 +71,7 @@ public class VehicleController : MonoBehaviour
         }
         if (GameTimeManager.Instance != null)
         {
-            GameTimeManager.Instance.OnHourChanged += OnHourChanged;
+            GameTimeManager.Instance.OnHourChanged += HandleHourChanged;
         }
         Invoke(nameof(RegisterSelf), 0.1f);
     }
@@ -87,7 +92,7 @@ public class VehicleController : MonoBehaviour
         }
         if (GameTimeManager.Instance != null)
         {
-            GameTimeManager.Instance.OnHourChanged -= OnHourChanged;
+            GameTimeManager.Instance.OnHourChanged -= HandleHourChanged;
         }
     }
 
@@ -176,7 +181,9 @@ public class VehicleController : MonoBehaviour
         RotateTowards(next.transform.position);
         float distUnits = Vector3.Distance(transform.position, next.transform.position);
         float distKm = distUnits * KM_PER_UNIT;
-        float duration = Mathf.Max(0.5f, distUnits / (visualSpeed * (road.roadData.speedLimitKmh / 150f)));
+
+        float actualSpeed = Mathf.Min(vehicleData.maxSpeedKmh, road.roadData.speedLimitKmh);
+        float duration = Mathf.Max(0.5f, distUnits / (visualSpeed * (actualSpeed / 150f)));
 
         status = VehicleStatus.Moving;
         moveTween = transform.DOMove(next.transform.position, duration).SetEase(Ease.Linear)
@@ -194,11 +201,6 @@ public class VehicleController : MonoBehaviour
             FinanceManager.Instance?.AddIncome(inc);
             currentLoad = 0;
             loadDestination = null;
-        }
-        else if (currentLoad == 0 && city.GeneratesIncomeFor(vehicleData.vehicleType))
-        {
-            int cons = DemandManager.Instance != null ? DemandManager.Instance.ConsumeCapacity(city, (int)vehicleData.maxCapacity) : (int)vehicleData.maxCapacity;
-            if (cons > 0) FinanceManager.Instance?.AddIncome((distKm / KM_PER_UNIT) * cons * (prev != null ? prev.activityLevel / 3f : 1f) * BASE_RATE);
         }
 
         FinanceManager.Instance?.AddExpense((distKm / 100f) * vehicleData.fuelPer100km * FUEL_PRICE);
@@ -303,7 +305,9 @@ public class VehicleController : MonoBehaviour
 
         RotateTowards(next.transform.position);
         float dist = Vector3.Distance(transform.position, next.transform.position);
-        float duration = Mathf.Max(0.3f, dist / (visualSpeed * (road.roadData.speedLimitKmh / 150f)));
+
+        float actualSpeed = Mathf.Min(vehicleData.maxSpeedKmh, road.roadData.speedLimitKmh);
+        float duration = Mathf.Max(0.3f, dist / (visualSpeed * (actualSpeed / 150f)));
 
         moveTween = transform.DOMove(next.transform.position, duration).SetEase(Ease.Linear).OnComplete(() =>
         {
@@ -383,7 +387,7 @@ public class VehicleController : MonoBehaviour
         transform.localScale = scale;
     }
 
-    private void OnHourChanged(GameDate date)
+    private void HandleHourChanged(GameDate date)
     {
         if (status == VehicleStatus.Loading)
         {

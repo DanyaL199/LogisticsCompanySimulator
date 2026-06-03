@@ -34,9 +34,11 @@ public class RouteBuilderPanel : MonoBehaviour
     [Header("Батько для нових маршрутів у Hierarchy")]
     public Transform routesParent;
 
-    private const float KM_PER_UNIT = 50f;
+    private const float KM_PER_UNIT = 60f;
     private List<CityNode> currentStops = new List<CityNode>();
     private List<GameObject> stopRows = new List<GameObject>();
+
+    private CityNode initialStartCity;
 
     private void Awake()
     {
@@ -62,6 +64,7 @@ public class RouteBuilderPanel : MonoBehaviour
 
     public void OpenPanel(CityNode startCity = null)
     {
+        initialStartCity = startCity;
         currentStops.Clear();
         ClearStopRows();
         SetWarning("");
@@ -78,7 +81,12 @@ public class RouteBuilderPanel : MonoBehaviour
 
     public void OnCityAdded(CityNode city, List<CityNode> current)
     {
-        currentStops = new List<CityNode>(current);
+        List<CityNode> virtualCurrent = new List<CityNode>();
+        if (initialStartCity != null && !current.Contains(initialStartCity))
+            virtualCurrent.Add(initialStartCity);
+        virtualCurrent.AddRange(current);
+
+        currentStops = virtualCurrent;
         RebuildStopRows();
         UpdateDistanceText();
         ValidateRoute();
@@ -86,7 +94,18 @@ public class RouteBuilderPanel : MonoBehaviour
 
     public void OnCityRemoved(CityNode city, List<CityNode> current)
     {
-        currentStops = new List<CityNode>(current);
+        List<CityNode> virtualCurrent = new List<CityNode>();
+        if (initialStartCity != null && !current.Contains(initialStartCity))
+            virtualCurrent.Add(initialStartCity);
+        virtualCurrent.AddRange(current);
+
+        if (city == initialStartCity)
+        {
+            virtualCurrent.Remove(initialStartCity);
+            initialStartCity = null;
+        }
+
+        currentStops = virtualCurrent;
         RebuildStopRows();
         UpdateDistanceText();
         ValidateRoute();
@@ -96,6 +115,8 @@ public class RouteBuilderPanel : MonoBehaviour
     {
         if (currentStops.Count == 0) return;
         CityNode last = currentStops[currentStops.Count - 1];
+        if (last == initialStartCity) initialStartCity = null;
+
         currentStops.RemoveAt(currentStops.Count - 1);
         RebuildStopRows();
         UpdateDistanceText();
@@ -107,6 +128,8 @@ public class RouteBuilderPanel : MonoBehaviour
     {
         if (index < 0 || index >= currentStops.Count) return;
         CityNode city = currentStops[index];
+        if (city == initialStartCity) initialStartCity = null;
+
         currentStops.RemoveAt(index);
         RebuildStopRows();
         UpdateDistanceText();
