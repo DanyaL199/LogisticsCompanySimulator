@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(RouteDefinition))]
 public class RouteVisualizer : MonoBehaviour
@@ -6,18 +7,24 @@ public class RouteVisualizer : MonoBehaviour
     public GameObject linePrefab;
     private RouteDefinition route;
 
-    private void Awake() { route = GetComponent<RouteDefinition>(); }
-
     private void Start()
     {
-        BuildHighlightLines();
-        route.HideHighlight();
+        // Невелика затримка щоб дати час всім маршрутам провантажитись
+        Invoke(nameof(BuildHighlightLines), 0.1f);
     }
 
-    private void BuildHighlightLines()
+    public void BuildHighlightLines()
     {
-        if (!route.IsValid() || linePrefab == null) return;
+        if (route == null) route = GetComponent<RouteDefinition>();
+        if (linePrefab == null && RoadNetwork.Instance != null) linePrefab = RoadNetwork.Instance.roadLinePrefab;
+
+        foreach (var lr in route.highlightLines)
+        {
+            if (lr != null) Destroy(lr.gameObject);
+        }
         route.highlightLines.Clear();
+
+        if (!route.IsValid() || linePrefab == null) return;
 
         for (int i = 0; i < route.stops.Count; i++)
         {
@@ -29,16 +36,98 @@ public class RouteVisualizer : MonoBehaviour
             var lr = obj.GetComponent<LineRenderer>();
             if (lr == null) continue;
 
-            lr.positionCount = 2;
-            lr.SetPosition(0, a.transform.position);
-            lr.SetPosition(1, b.transform.position);
-            lr.startWidth = lr.endWidth = 0.18f;
+            lr.numCornerVertices = 4;
+            lr.numCapVertices = 4;
+
+            int overlapIndex = GetSegmentOverlapIndex(a, b, i);
+
+            Vector3 startPos = a.transform.position;
+            Vector3 endPos = b.transform.position;
+
+            // ВАЖЛИВО: нормаль має бути консистентною незалежно від напрямку (A->B чи B->A)
+            Vector3 consistentStart = (a.GetInstanceID() < b.GetInstanceID()) ? startPos : endPos;
+            Vector3 consistentEnd = (a.GetInstanceID() < b.GetInstanceID()) ? endPos : startPos;
+
+            // Перпендикуляр до сегменту дороги
+            Vector3 dir = (consistentEnd - consistentStart).normalized;
+            Vector3 normal = new Vector3(-dir.y, dir.x, 0);
+
+            // Зміщення: 
+            // 0-й маршрут -> +0.12
+            // 1-й маршрут -> -0.12
+            // 2-й маршрут -> +0.24 і т.д.
+            int sign = (overlapIndex % 2 == 0) ? 1 : -1;
+            int step = (overlapIndex / 2) + 1;
+            float offsetAmount = step * sign * 0.12f;
+
+            Vector3 offset = normal * offsetAmount;
+
+            // Щоб лінії збігалися в містах, робимо 4 точки
+            Vector3 dirAtoB = (endPos - startPos).normalized;
+            float dist = Vector3.Distance(startPos, endPos);
+            float taperDist = Mathf.Min(0.5f, dist * 0.25f);
+
+            lr.positionCount = 4;
+            lr.SetPosition(0, startPos);
+            lr.SetPosition(1, startPos + dirAtoB * taperDist + offset);
+            lr.SetPosition(2, endPos - dirAtoB * taperDist + offset);
+            lr.SetPosition(3, endPos);
+
+            lr.startWidth = lr.endWidth = 0.08f;
             lr.sortingLayerName = "Roads";
-            lr.sortingOrder = 1;
+            lr.sortingOrder = 2 + overlapIndex; // НАД дорогою
+
             lr.startColor = lr.endColor = route.routeColor;
-            lr.enabled = false;
 
             route.highlightLines.Add(lr);
+        }
+
+        route.ShowHighlight();
+    }
+
+    private int GetSegmentOverlapIndex(CityNode a, CityNode b, int stopIndex)
+    {
+        var allRoutes = FindObjectsByType<RouteDefinition>(FindObjectsSortMode.None);
+
+        List<(RouteDefinition route, int sIdx)> traversing = new List<(RouteDefinition, int)>();
+
+        foreach (var r in allRoutes)
+        {
+            if (r == null || !r.IsValid()) continue;
+
+            for (int j = 0; j < r.stops.Count; j++)
+            {
+                CityNode a2 = r.stops[j].city;
+                CityNode b2 = r.stops[(j + 1) % r.stops.Count].city;
+                if ((a == a2 && b == b2) || (a == b2 && b == a2))
+                {
+                    traversing.Add((r, j));
+                }
+            }
+        }
+
+        // Сортуємо для консистентного результату між викликами
+        traversing.Sort((t1, t2) => {
+            int cmp = t1.route.GetInstanceID().CompareTo(t2.route.GetInstanceID());
+            if (cmp == 0) return t1.sIdx.CompareTo(t2.sIdx);
+            return cmp;
+        });
+
+        for (int j = 0; j < traversing.Count; j++)
+        {
+            if (traversing[j].route == route && traversing[j].sIdx == stopIndex)
+                return j;
+        }
+
+        return 0;
+    }
+
+    public static void RebuildAllHighlights()
+    {
+        var allVis = FindObjectsByType<RouteVisualizer>(FindObjectsSortMode.None);
+        foreach (var v in allVis)
+        {
+            if (v != null) v.BuildHighlightLines();
         }
     }
 }

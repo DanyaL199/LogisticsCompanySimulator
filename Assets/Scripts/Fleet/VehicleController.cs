@@ -6,6 +6,7 @@ public enum VehicleStatus
 {
     Idle,
     Moving,
+    Loading,
     ReturningToWorkshop,
     Repairing,
     Broken,
@@ -33,6 +34,7 @@ public class VehicleController : MonoBehaviour
     [Header("Завантаження")]
     public int currentLoad = 0;
     public CityNode loadDestination = null;
+    public int waitHoursLeft = 0;
 
     [Header("Активний маршрут")]
     public RouteDefinition activeRoute;
@@ -62,6 +64,10 @@ public class VehicleController : MonoBehaviour
             WageManager.Instance.OnStrikeStarted += OnStrikeStarted;
             WageManager.Instance.OnStrikeEnded += OnStrikeEnded;
         }
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnHourChanged += OnHourChanged;
+        }
         Invoke(nameof(RegisterSelf), 0.1f);
     }
 
@@ -78,6 +84,10 @@ public class VehicleController : MonoBehaviour
         {
             WageManager.Instance.OnStrikeStarted -= OnStrikeStarted;
             WageManager.Instance.OnStrikeEnded -= OnStrikeEnded;
+        }
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnHourChanged -= OnHourChanged;
         }
     }
 
@@ -98,10 +108,8 @@ public class VehicleController : MonoBehaviour
             transform.position = currentCity.transform.position;
             isFirstDispatch = false;
 
-            activeRoute.ShowHighlight(true);
-            status = VehicleStatus.Idle;
-            LoadCargo();
-            MoveToNext();
+            status = VehicleStatus.Loading;
+            waitHoursLeft = 2;
         }
         else
         {
@@ -116,9 +124,8 @@ public class VehicleController : MonoBehaviour
             }
             else
             {
-                activeRoute.ShowHighlight(true);
-                LoadCargo();
-                MoveToNext();
+                status = VehicleStatus.Loading;
+                waitHoursLeft = 2;
             }
         }
         return true;
@@ -127,10 +134,10 @@ public class VehicleController : MonoBehaviour
     public void StopRoute()
     {
         moveTween?.Kill();
-        if (activeRoute != null) activeRoute.ShowHighlight(false);
         activeRoute = null;
         currentLoad = 0;
         loadDestination = null;
+        waitHoursLeft = 0;
         if (status != VehicleStatus.Repairing && status != VehicleStatus.ReturningToWorkshop && status != VehicleStatus.Broken)
         {
             status = VehicleStatus.Idle;
@@ -147,11 +154,9 @@ public class VehicleController : MonoBehaviour
         {
             if (stop.city == currentCity) continue;
 
-            // Тепер ми перевіряємо попит конкретно НА НАШ ТИП (Cargo або Passenger)
             int available = currentCity.GetDemandTo(stop.city, vehicleData.vehicleType);
             if (available > 0)
             {
-                // Забираємо відповідні юніти
                 currentLoad = currentCity.TakeUnits(stop.city, (int)vehicleData.maxCapacity, vehicleData.vehicleType);
                 loadDestination = stop.city;
                 return;
@@ -201,8 +206,6 @@ public class VehicleController : MonoBehaviour
 
         if (status == VehicleStatus.Broken) return;
 
-        status = VehicleStatus.Idle;
-
         if (condition <= globalRepairThreshold)
         {
             targetWorkshop = GetNearestWorkshopWithFreeSlot();
@@ -215,8 +218,8 @@ public class VehicleController : MonoBehaviour
             }
         }
 
-        if (currentLoad == 0) LoadCargo();
-        MoveToNext();
+        status = VehicleStatus.Loading;
+        waitHoursLeft = 2;
     }
 
     private void ApplyWear(RoadConnection road, float distKm)
@@ -284,9 +287,8 @@ public class VehicleController : MonoBehaviour
             currentCity = destination;
             if (isMovingToNewRoute)
             {
-                status = VehicleStatus.Idle;
-                LoadCargo();
-                MoveToNext();
+                status = VehicleStatus.Loading;
+                waitHoursLeft = 2;
             }
             else
             {
@@ -379,6 +381,20 @@ public class VehicleController : MonoBehaviour
         Vector3 scale = transform.localScale;
         scale.y = dir.x < 0 ? -Mathf.Abs(scale.y) : Mathf.Abs(scale.y);
         transform.localScale = scale;
+    }
+
+    private void OnHourChanged(GameDate date)
+    {
+        if (status == VehicleStatus.Loading)
+        {
+            waitHoursLeft--;
+            if (waitHoursLeft <= 0)
+            {
+                status = VehicleStatus.Idle;
+                if (currentLoad == 0) LoadCargo();
+                MoveToNext();
+            }
+        }
     }
 
     private void OnStrikeStarted() { moveTween?.Kill(); status = VehicleStatus.Strike; }

@@ -38,14 +38,13 @@ public class RouteDefinition : MonoBehaviour
         return stops[0].city;
     }
 
-    public void ShowHighlight(bool hasVehicle)
+    public void ShowHighlight()
     {
-        Color color = hasVehicle ? routeColor : new Color(routeColor.r * 0.4f, routeColor.g * 0.4f, routeColor.b * 0.4f, 0.8f);
         foreach (var lr in highlightLines)
         {
             if (lr == null) continue;
-            lr.startColor = color;
-            lr.endColor = color;
+            lr.startColor = routeColor;
+            lr.endColor = routeColor;
             lr.enabled = true;
         }
     }
@@ -62,6 +61,7 @@ public class RouteDefinition : MonoBehaviour
 Назва файла: RouteVisualizer.cs
 
 using UnityEngine;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(RouteDefinition))]
 public class RouteVisualizer : MonoBehaviour
@@ -69,18 +69,23 @@ public class RouteVisualizer : MonoBehaviour
     public GameObject linePrefab;
     private RouteDefinition route;
 
-    private void Awake() { route = GetComponent<RouteDefinition>(); }
-
     private void Start()
     {
-        BuildHighlightLines();
-        route.HideHighlight();
+        // Невелика затримка щоб дати час всім маршрутам провантажитись
+        Invoke(nameof(BuildHighlightLines), 0.1f);
     }
 
-    private void BuildHighlightLines()
+    public void BuildHighlightLines()
     {
-        if (!route.IsValid() || linePrefab == null) return;
+        if (route == null) route = GetComponent<RouteDefinition>();
+
+        foreach (var lr in route.highlightLines)
+        {
+            if (lr != null) Destroy(lr.gameObject);
+        }
         route.highlightLines.Clear();
+
+        if (!route.IsValid() || linePrefab == null) return;
 
         for (int i = 0; i < route.stops.Count; i++)
         {
@@ -95,13 +100,62 @@ public class RouteVisualizer : MonoBehaviour
             lr.positionCount = 2;
             lr.SetPosition(0, a.transform.position);
             lr.SetPosition(1, b.transform.position);
-            lr.startWidth = lr.endWidth = 0.18f;
+
+            // Рівень накладання на конкретно цьому відрізку
+            int overlapIndex = GetSegmentOverlapIndex(a, b);
+
+            // Чим більший overlapIndex, тим ширша лінія 
+            // 0.35 — це перший маршрут (виглядає з-під дороги)
+            // 0.60 — це другий маршрут (виглядає з-під першого)
+            lr.startWidth = lr.endWidth = 0.35f + (overlapIndex * 0.25f);
+
+            // Внутрішній порядок рендеру, щоб ширші лінії були "нижче"
             lr.sortingLayerName = "Roads";
-            lr.sortingOrder = 1;
+            lr.sortingOrder = -1 - overlapIndex;
+
             lr.startColor = lr.endColor = route.routeColor;
-            lr.enabled = false;
 
             route.highlightLines.Add(lr);
+        }
+
+        route.ShowHighlight();
+    }
+
+    private int GetSegmentOverlapIndex(CityNode a, CityNode b)
+    {
+        var allRoutes = FindObjectsByType<RouteDefinition>(FindObjectsSortMode.None);
+        List<RouteDefinition> overlapping = new List<RouteDefinition>();
+
+        foreach (var r in allRoutes)
+        {
+            if (r == null || !r.IsValid()) continue;
+
+            bool hasShared = false;
+            for (int i = 0; i < r.stops.Count; i++)
+            {
+                CityNode a2 = r.stops[i].city;
+                CityNode b2 = r.stops[(i + 1) % r.stops.Count].city;
+                if ((a == a2 && b == b2) || (a == b2 && b == a2))
+                {
+                    hasShared = true;
+                    break;
+                }
+            }
+
+            if (hasShared) overlapping.Add(r);
+        }
+
+        // Сортуємо для консистентного результату між викликами
+        overlapping.Sort((r1, r2) => r1.GetInstanceID().CompareTo(r2.GetInstanceID()));
+        return Mathf.Max(0, overlapping.IndexOf(route));
+    }
+
+    public static void RebuildAllHighlights()
+    {
+        var allVis = FindObjectsByType<RouteVisualizer>(FindObjectsSortMode.None);
+        foreach (var v in allVis)
+        {
+            if (v != null) v.BuildHighlightLines();
         }
     }
 }
@@ -337,6 +391,7 @@ public enum VehicleStatus
 {
     Idle,
     Moving,
+    Loading,
     ReturningToWorkshop,
     Repairing,
     Broken,
@@ -364,6 +419,7 @@ public class VehicleController : MonoBehaviour
     [Header("Завантаження")]
     public int currentLoad = 0;
     public CityNode loadDestination = null;
+    public int waitHoursLeft = 0;
 
     [Header("Активний маршрут")]
     public RouteDefinition activeRoute;
@@ -393,6 +449,10 @@ public class VehicleController : MonoBehaviour
             WageManager.Instance.OnStrikeStarted += OnStrikeStarted;
             WageManager.Instance.OnStrikeEnded += OnStrikeEnded;
         }
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnHourChanged += OnHourChanged;
+        }
         Invoke(nameof(RegisterSelf), 0.1f);
     }
 
@@ -409,6 +469,10 @@ public class VehicleController : MonoBehaviour
         {
             WageManager.Instance.OnStrikeStarted -= OnStrikeStarted;
             WageManager.Instance.OnStrikeEnded -= OnStrikeEnded;
+        }
+        if (GameTimeManager.Instance != null)
+        {
+            GameTimeManager.Instance.OnHourChanged -= OnHourChanged;
         }
     }
 
@@ -429,10 +493,8 @@ public class VehicleController : MonoBehaviour
             transform.position = currentCity.transform.position;
             isFirstDispatch = false;
 
-            activeRoute.ShowHighlight(true);
-            status = VehicleStatus.Idle;
-            LoadCargo();
-            MoveToNext();
+            status = VehicleStatus.Loading;
+            waitHoursLeft = 2;
         }
         else
         {
@@ -447,9 +509,8 @@ public class VehicleController : MonoBehaviour
             }
             else
             {
-                activeRoute.ShowHighlight(true);
-                LoadCargo();
-                MoveToNext();
+                status = VehicleStatus.Loading;
+                waitHoursLeft = 2;
             }
         }
         return true;
@@ -458,10 +519,10 @@ public class VehicleController : MonoBehaviour
     public void StopRoute()
     {
         moveTween?.Kill();
-        if (activeRoute != null) activeRoute.ShowHighlight(false);
         activeRoute = null;
         currentLoad = 0;
         loadDestination = null;
+        waitHoursLeft = 0;
         if (status != VehicleStatus.Repairing && status != VehicleStatus.ReturningToWorkshop && status != VehicleStatus.Broken)
         {
             status = VehicleStatus.Idle;
@@ -478,11 +539,9 @@ public class VehicleController : MonoBehaviour
         {
             if (stop.city == currentCity) continue;
 
-            // Тепер ми перевіряємо попит конкретно НА НАШ ТИП (Cargo або Passenger)
             int available = currentCity.GetDemandTo(stop.city, vehicleData.vehicleType);
             if (available > 0)
             {
-                // Забираємо відповідні юніти
                 currentLoad = currentCity.TakeUnits(stop.city, (int)vehicleData.maxCapacity, vehicleData.vehicleType);
                 loadDestination = stop.city;
                 return;
@@ -532,8 +591,6 @@ public class VehicleController : MonoBehaviour
 
         if (status == VehicleStatus.Broken) return;
 
-        status = VehicleStatus.Idle;
-
         if (condition <= globalRepairThreshold)
         {
             targetWorkshop = GetNearestWorkshopWithFreeSlot();
@@ -546,8 +603,8 @@ public class VehicleController : MonoBehaviour
             }
         }
 
-        if (currentLoad == 0) LoadCargo();
-        MoveToNext();
+        status = VehicleStatus.Loading;
+        waitHoursLeft = 2;
     }
 
     private void ApplyWear(RoadConnection road, float distKm)
@@ -615,9 +672,8 @@ public class VehicleController : MonoBehaviour
             currentCity = destination;
             if (isMovingToNewRoute)
             {
-                status = VehicleStatus.Idle;
-                LoadCargo();
-                MoveToNext();
+                status = VehicleStatus.Loading;
+                waitHoursLeft = 2;
             }
             else
             {
@@ -710,6 +766,20 @@ public class VehicleController : MonoBehaviour
         Vector3 scale = transform.localScale;
         scale.y = dir.x < 0 ? -Mathf.Abs(scale.y) : Mathf.Abs(scale.y);
         transform.localScale = scale;
+    }
+
+    private void OnHourChanged(GameDate date)
+    {
+        if (status == VehicleStatus.Loading)
+        {
+            waitHoursLeft--;
+            if (waitHoursLeft <= 0)
+            {
+                status = VehicleStatus.Idle;
+                if (currentLoad == 0) LoadCargo();
+                MoveToNext();
+            }
+        }
     }
 
     private void OnStrikeStarted() { moveTween?.Kill(); status = VehicleStatus.Strike; }
@@ -1054,13 +1124,13 @@ public class CityNode : MonoBehaviour
 
     private void OnDayChanged(GameDate date)
     {
-        // Щодня попит відновлюється на 30%
+        // Щодня попит відновлюється на 10% від максимуму
         foreach (var d in demands)
         {
-            int replenishC = Mathf.CeilToInt(d.maxCargo * 0.3f);
+            int replenishC = Mathf.CeilToInt(d.maxCargo * 0.10f);
             d.currentCargo = Mathf.Min(d.maxCargo, d.currentCargo + replenishC);
 
-            int replenishP = Mathf.CeilToInt(d.maxPassengers * 0.3f);
+            int replenishP = Mathf.CeilToInt(d.maxPassengers * 0.10f);
             d.currentPassengers = Mathf.Min(d.maxPassengers, d.currentPassengers + replenishP);
         }
     }
@@ -1127,9 +1197,9 @@ public class CityNode : MonoBehaviour
 
     public void BuildWorkshop()
     {
-        if (FinanceManager.Instance.CanAfford(50000f))
+        if (FinanceManager.Instance.CanAfford(25000f))
         {
-            FinanceManager.Instance.AddExpense(50000f);
+            FinanceManager.Instance.AddExpense(25000f);
             hasWorkshop = true;
         }
     }
@@ -1204,15 +1274,11 @@ using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
-/// <summary>
-/// Обробляє кліки на карті як під час побудови маршруту, так і у звичайному режимі (відкриття інфо міста).
-/// </summary>
 public class MapClickHandler : MonoBehaviour
 {
     public static MapClickHandler Instance { get; private set; }
 
     [Header("Налаштування кліку")]
-    [Tooltip("Використовується, якщо на місті раптом немає CircleCollider2D")]
     public float fallbackClickRadius = 0.6f;
 
     [Header("Підсвітка міста при наведенні")]
@@ -1241,11 +1307,17 @@ public class MapClickHandler : MonoBehaviour
         allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
     }
 
-    public void StartBuilding()
+    // Додано підтримку стартового міста
+    public void StartBuilding(CityNode startCity = null)
     {
         IsActive = true;
         selectedCities.Clear();
         ClearPreviewLines();
+
+        if (startCity != null)
+        {
+            AddCity(startCity);
+        }
     }
 
     public void StopBuilding()
@@ -1259,7 +1331,6 @@ public class MapClickHandler : MonoBehaviour
 
     private void Update()
     {
-        // ВАЖЛИВО: Не реагувати на кліки/наведення по карті, якщо курсор/натискання зараз над UI-панеллю!
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             if (hoveredCity != null && (!IsActive || !selectedCities.Contains(hoveredCity)))
@@ -1298,7 +1369,6 @@ public class MapClickHandler : MonoBehaviour
 
         if (!IsActive)
         {
-            // --- ЗВИЧАЙНИЙ РЕЖИМ ---
             if (CityInfoPanel.Instance != null)
             {
                 CityInfoPanel.Instance.OpenPanel(city);
@@ -1306,7 +1376,6 @@ public class MapClickHandler : MonoBehaviour
             return;
         }
 
-        // --- РЕЖИМ ПОБУДОВИ МАРШРУТУ ---
         if (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed && selectedCities.Contains(city))
         {
             RemoveCity(city);
@@ -1426,7 +1495,6 @@ public class MapClickHandler : MonoBehaviour
         Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, 0f));
         worldPos.z = 0f;
 
-        // 1. Спочатку перевіряємо ідеально по CircleCollider2D
         Collider2D hit = Physics2D.OverlapPoint(worldPos);
         if (hit != null)
         {
@@ -1434,7 +1502,6 @@ public class MapClickHandler : MonoBehaviour
             if (hitCity != null) return hitCity;
         }
 
-        // 2. Fallback на випадок якщо ми забули навісити колайдер
         if (allCities == null || allCities.Length == 0) return null;
 
         CityNode nearest = null;
@@ -1710,6 +1777,9 @@ public class RoadNetwork : MonoBehaviour
     [Header("Префаб лінії дороги")]
     public GameObject roadLinePrefab;
 
+    [Header("Список доступних типів доріг (для будівництва)")]
+    public List<RoadData> availableRoadTypes;
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
@@ -1742,7 +1812,19 @@ public class RoadNetwork : MonoBehaviour
 
     public bool BuildRoad(CityNode a, CityNode b, RoadData roadData)
     {
-        if (RoadExists(a, b)) return false;
+        RoadConnection existing = GetRoad(a, b);
+
+        if (existing != null)
+        {
+            // Upgrade
+            if (existing.roadData.roadType >= roadData.roadType) return false;
+
+            existing.roadData = roadData;
+            UpdateLineVisuals(existing.lineRenderer, roadData);
+            FinanceManager.Instance?.RegisterRoadValue(roadData.buildCost);
+            Debug.Log($"Дорога покращена: {a.cityName} ↔ {b.cityName}");
+            return true;
+        }
 
         var lr = CreateLine(a, b, roadData);
 
@@ -1770,14 +1852,29 @@ public class RoadNetwork : MonoBehaviour
         lr.positionCount = 2;
         lr.SetPosition(0, a.transform.position);
         lr.SetPosition(1, b.transform.position);
-        lr.startWidth = lr.endWidth = 0.12f;
 
-        Color color = Color.gray;
-        if (roadData != null && roadData.roadType == RoadType.Highway)
-            color = new Color(0.22f, 0.42f, 0.79f);
-        lr.startColor = lr.endColor = color;
+        UpdateLineVisuals(lr, roadData);
+        lr.sortingOrder = 1;
 
         return lr;
+    }
+
+    private void UpdateLineVisuals(LineRenderer lr, RoadData roadData)
+    {
+        if (lr == null) return;
+
+        lr.startWidth = lr.endWidth = 0.12f;
+        Color color = Color.gray;
+        if (roadData != null)
+        {
+            switch (roadData.roadType)
+            {
+                case RoadType.Dirt: color = new Color(0.4f, 0.25f, 0.1f); break;
+                case RoadType.Asphalt: color = new Color(0.4f, 0.4f, 0.4f); lr.startWidth = lr.endWidth = 0.16f; break;
+                case RoadType.Highway: color = new Color(0.22f, 0.42f, 0.79f); lr.startWidth = lr.endWidth = 0.18f; break;
+            }
+        }
+        lr.startColor = lr.endColor = color;
     }
 
     public List<CityNode> GetNeighbors(CityNode city)
@@ -1793,6 +1890,7 @@ public class RoadNetwork : MonoBehaviour
 
     public List<CityNode> FindPath(CityNode start, CityNode end)
     {
+        if (start == end) return new List<CityNode> { start };
         var queue = new Queue<CityNode>();
         var visited = new Dictionary<CityNode, CityNode>();
         queue.Enqueue(start);
@@ -1814,26 +1912,11 @@ public class RoadNetwork : MonoBehaviour
         }
         return null;
     }
+
     public void SetRouteHighlight(RouteDefinition route, bool hasVehicle)
     {
         if (route == null || !route.IsValid()) return;
-
-        Color color = hasVehicle
-            ? new Color(1.0f, 0.55f, 0.0f) // яскравий оранжевий
-            : new Color(0.6f, 0.35f, 0.0f); // тьмяний оранжевий
-
-        for (int i = 0; i < route.stops.Count; i++)
-        {
-            CityNode a = route.stops[i].city;
-            CityNode b = route.stops[(i + 1) % route.stops.Count].city;
-
-            RoadConnection road = GetRoad(a, b);
-            if (road?.lineRenderer != null)
-            {
-                road.lineRenderer.startColor = color;
-                road.lineRenderer.endColor = color;
-            }
-        }
+        route.ShowHighlight();
     }
 
     private List<CityNode> BuildPath(Dictionary<CityNode, CityNode> visited,
@@ -1841,7 +1924,7 @@ public class RoadNetwork : MonoBehaviour
     {
         var path = new List<CityNode>();
         var current = end;
-        while (current != start)
+        while (current != null)
         {
             path.Add(current);
             current = visited[current];
@@ -1849,7 +1932,6 @@ public class RoadNetwork : MonoBehaviour
         path.Reverse();
         return path;
     }
-
 }
 
 ==================================================
@@ -1859,6 +1941,7 @@ public class RoadNetwork : MonoBehaviour
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class CityInfoPanel : MonoBehaviour
 {
@@ -1871,9 +1954,15 @@ public class CityInfoPanel : MonoBehaviour
     public Button btnBuildWorkshop;
     public Button btnHireMechanic;
     public Button btnCreateRoute;
+    public Button btnBuildRoad;
     public Button btnClose;
 
     public CityNode SelectedCity { get; private set; }
+
+    // --- Список для збереження створених підписів попиту ---
+    private List<GameObject> demandWorldLabels = new List<GameObject>();
+    private float updateTimer = 0f;
+    private CityNode lastLabelCity = null;
 
     private void Awake()
     {
@@ -1882,25 +1971,41 @@ public class CityInfoPanel : MonoBehaviour
         if (btnClose != null) btnClose.onClick.AddListener(ClosePanel);
     }
 
+    private void Update()
+    {
+        // Періодично оновлюємо числа попиту як на панелі, так і над містами
+        if (panelObj != null && panelObj.activeSelf && SelectedCity != null)
+        {
+            updateTimer += Time.deltaTime;
+            if (updateTimer >= 0.2f)
+            {
+                updateTimer = 0f;
+                RefreshDemandsText();
+                UpdateDemandWorldLabels();
+            }
+        }
+    }
+
     public void OpenPanel(CityNode city)
     {
         SelectedCity = city;
         if (cityNameText != null) cityNameText.text = city.cityName;
         if (panelObj != null) panelObj.SetActive(true);
         RefreshUI();
+        UpdateDemandWorldLabels(); // Показуємо попит над містами
     }
 
     public void ClosePanel()
     {
         if (panelObj != null) panelObj.SetActive(false);
         SelectedCity = null;
+        ClearDemandWorldLabels(); // Приховуємо текст при закритті
     }
 
     private void RefreshUI()
     {
         if (SelectedCity == null) return;
 
-        // БЕЗПЕЧНИЙ ВИКЛИК (ЗАХИСТ ВІД NULL)
         if (btnBuildWorkshop != null)
         {
             TextMeshProUGUI workshopBtnText = btnBuildWorkshop.GetComponentInChildren<TextMeshProUGUI>();
@@ -1928,7 +2033,6 @@ public class CityInfoPanel : MonoBehaviour
             }
         }
 
-        // ЗАХИСТ ВІД NULL ДЛЯ КНОПКИ НАЙМУ
         if (btnHireMechanic != null)
         {
             btnHireMechanic.interactable = SelectedCity.hasWorkshop;
@@ -1936,32 +2040,109 @@ public class CityInfoPanel : MonoBehaviour
             btnHireMechanic.onClick.AddListener(() => { SelectedCity.HireMechanic(); RefreshUI(); });
         }
 
-        // ЗАХИСТ ВІД NULL ДЛЯ МАРШРУТУ
         if (btnCreateRoute != null)
         {
             btnCreateRoute.onClick.RemoveAllListeners();
             btnCreateRoute.onClick.AddListener(() => {
-                ClosePanel();
-                if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel();
+                ClosePanel(); // Закриваємо панель (що прибере і підписи над містами)
+                if (RouteBuilderPanel.Instance != null) RouteBuilderPanel.Instance.OpenPanel(SelectedCity);
             });
         }
 
-        // ЗАХИСТ ВІД NULL (Якщо місто випадково має пусте "призначення" попиту)
-        string ds = "Попит:\n";
+        if (btnBuildRoad != null)
+        {
+            btnBuildRoad.onClick.RemoveAllListeners();
+            btnBuildRoad.onClick.AddListener(() => {
+                ClosePanel();
+                if (RoadBuilderPanel.Instance != null) RoadBuilderPanel.Instance.OpenPanel(SelectedCity);
+            });
+        }
+
+        RefreshDemandsText();
+    }
+
+    private void RefreshDemandsText()
+    {
+        if (SelectedCity == null) return;
+        string ds = "Доступно для перевезення:\n";
         if (SelectedCity.demands != null)
         {
             foreach (var d in SelectedCity.demands)
             {
-                // Захист: якщо під час генерації якесь місто лишилося порожнім 
                 if (d == null || d.destination == null) continue;
 
                 ds += $"<b>До: {d.destination.cityName}</b>\n";
-                ds += $"  Вантажі: {d.currentCargo}/{d.maxCargo}\n";
-                ds += $"  Пасажири: {d.currentPassengers}/{d.maxPassengers}\n";
+                ds += $"  Вантажі: {d.currentCargo} / {d.maxCargo}\n";
+                ds += $"  Пасажири: {d.currentPassengers} / {d.maxPassengers}\n";
             }
         }
 
         if (demandsListText != null) demandsListText.text = ds;
+    }
+
+    // --- ЛОГІКА ДИНАМІЧНОГО ТЕКСТУ НАД МІСТАМИ ---
+
+    private void UpdateDemandWorldLabels()
+    {
+        if (SelectedCity == null || SelectedCity.demands == null)
+        {
+            ClearDemandWorldLabels();
+            lastLabelCity = null;
+            return;
+        }
+
+        // Якщо змінили вибране місто АБО кількість міст-призначень змінилася, перестворюємо об'єкти
+        if (demandWorldLabels.Count != SelectedCity.demands.Count || lastLabelCity != SelectedCity)
+        {
+            ClearDemandWorldLabels();
+            lastLabelCity = SelectedCity;
+
+            for (int i = 0; i < SelectedCity.demands.Count; i++)
+            {
+                var d = SelectedCity.demands[i];
+                if (d == null || d.destination == null) continue;
+
+                // Створюємо порожній об'єкт і вішаємо на нього TextMeshPro
+                GameObject labelObj = new GameObject($"DemandLabel_{d.destination.cityName}");
+                // Встановлюємо позицію вище за місто призначення
+                labelObj.transform.position = d.destination.transform.position + new Vector3(0, 1.2f, 0);
+
+                var tmp = labelObj.AddComponent<TextMeshPro>();
+                tmp.fontSize = 2.5f;
+                tmp.alignment = TextAlignmentOptions.Center;
+                tmp.sortingOrder = 15; // Щоб текст перекривав дороги та інше
+
+                demandWorldLabels.Add(labelObj);
+            }
+        }
+
+        // Оновлюємо числа, їхній колір та позицію
+        for (int i = 0; i < demandWorldLabels.Count; i++)
+        {
+            if (i >= SelectedCity.demands.Count) break;
+            var d = SelectedCity.demands[i];
+            var obj = demandWorldLabels[i];
+            if (obj == null || d == null || d.destination == null) continue;
+
+            // !!ВАЖЛИВО!!: Оновлюємо позицію щоб текст завжди був над потрібним містом 
+            obj.transform.position = d.destination.transform.position + new Vector3(0, 1.2f, 0);
+
+            var tmp = obj.GetComponent<TextMeshPro>();
+            if (tmp != null)
+            {
+                // В жовтому кольорі вантажі, в блакитному — пасажири
+                tmp.text = $"<b><color=#FFDB58>В: {d.currentCargo}</color> | <color=#00BFFF>П: {d.currentPassengers}</color></b>";
+            }
+        }
+    }
+
+    private void ClearDemandWorldLabels()
+    {
+        foreach (var obj in demandWorldLabels)
+        {
+            if (obj != null) Destroy(obj);
+        }
+        demandWorldLabels.Clear();
     }
 }
 
@@ -2337,6 +2518,230 @@ public class NotificationController : MonoBehaviour
 
 ==================================================
 
+Назва файла: RoadBuilderPanel.cs
+
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.InputSystem;
+using TMPro;
+using System.Collections.Generic;
+
+public class RoadBuilderPanel : MonoBehaviour
+{
+    public static RoadBuilderPanel Instance { get; private set; }
+
+    [Header("Кореневий об'єкт панелі")]
+    public GameObject panelRoot;
+
+    [Header("Рядки міст")]
+    public TextMeshProUGUI cityAText;
+    public TextMeshProUGUI cityBText;
+
+    [Header("Текст відстані")]
+    public TextMeshProUGUI distanceText;
+
+    [Header("Текст попередження/вартості")]
+    public TextMeshProUGUI warningText;
+
+    [Header("Вибір дороги")]
+    public TMP_Dropdown roadTypeDropdown;
+
+    [Header("Кнопки")]
+    public Button btnConfirm;
+    public Button btnCancel;
+    public Button btnOpenPanel; // Кнопка верхньої панелі
+
+    private CityNode cityA;
+    private CityNode cityB;
+    private const float KM_PER_UNIT = 50f;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        btnOpenPanel?.onClick.AddListener(() => OpenPanel(null));
+        btnConfirm?.onClick.AddListener(OnConfirm);
+        btnCancel?.onClick.AddListener(OnCancel);
+        roadTypeDropdown?.onValueChanged.AddListener((_) => RefreshInfo());
+
+        panelRoot?.SetActive(false);
+        SetWarning("");
+    }
+
+    private void Update()
+    {
+        if (panelRoot != null && panelRoot.activeSelf)
+        {
+            // Якщо вибрано більше 2 міст, обрізаємо
+            var selected = MapClickHandler.Instance?.GetSelectedCities();
+            if (selected != null && selected.Count > 0)
+            {
+                if (cityA != selected[0])
+                {
+                    cityA = selected[0];
+                    RefreshInfo();
+                }
+
+                if (selected.Count == 2 && cityB != selected[1])
+                {
+                    cityB = selected[1];
+                    RefreshInfo();
+                }
+                else if (selected.Count > 2)
+                {
+                    // Скасовуємо третє виділене місто
+                    MapClickHandler.Instance.RemoveCityExternal(selected[2], new List<CityNode> { cityA, cityB });
+                }
+                else if (selected.Count == 1 && cityB != null)
+                {
+                    cityB = null;
+                    RefreshInfo();
+                }
+            }
+            else if (cityA != null || cityB != null)
+            {
+                cityA = cityB = null;
+                RefreshInfo();
+            }
+        }
+    }
+
+    public void OpenPanel(CityNode startCity = null)
+    {
+        cityA = startCity;
+        cityB = null;
+
+        SetWarning("");
+        PopulateDropdown();
+        panelRoot?.SetActive(true);
+        MapClickHandler.Instance?.StartBuilding(startCity);
+
+        RefreshInfo();
+    }
+
+    private void ClosePanel()
+    {
+        panelRoot?.SetActive(false);
+        cityA = cityB = null;
+        MapClickHandler.Instance?.StopBuilding();
+    }
+
+    private void PopulateDropdown()
+    {
+        if (roadTypeDropdown == null || RoadNetwork.Instance == null) return;
+        roadTypeDropdown.ClearOptions();
+
+        var options = new List<string>();
+        foreach (var rt in RoadNetwork.Instance.availableRoadTypes)
+        {
+            if (rt != null) options.Add($"{rt.roadName} ({rt.buildCost} у.о.)");
+        }
+        roadTypeDropdown.AddOptions(options);
+    }
+
+    private void RefreshInfo()
+    {
+        if (cityAText != null) cityAText.text = cityA ? $"1. {cityA.cityName}" : "1. Оберіть місто А";
+        if (cityBText != null) cityBText.text = cityB ? $"2. {cityB.cityName}" : "2. Оберіть місто Б";
+
+        if (cityA == null || cityB == null)
+        {
+            if (distanceText != null) distanceText.text = "Відстань: —";
+            btnConfirm.interactable = false;
+            SetWarning("");
+            return;
+        }
+
+        float totalKm = Vector3.Distance(cityA.transform.position, cityB.transform.position) * KM_PER_UNIT;
+        if (distanceText != null) distanceText.text = $"Відстань: {totalKm:F0} км";
+
+        ValidateRoad();
+    }
+
+    private void ValidateRoad()
+    {
+        if (RoadNetwork.Instance == null || RoadNetwork.Instance.availableRoadTypes.Count == 0) return;
+        if (roadTypeDropdown == null) return;
+
+        int idx = roadTypeDropdown.value;
+        if (idx < 0 || idx >= RoadNetwork.Instance.availableRoadTypes.Count) return;
+
+        RoadData selectedRoad = RoadNetwork.Instance.availableRoadTypes[idx];
+        RoadConnection existing = RoadNetwork.Instance.GetRoad(cityA, cityB);
+
+        float cost = selectedRoad.buildCost;
+
+        if (existing != null)
+        {
+            if (existing.roadData.roadType >= selectedRoad.roadType)
+            {
+                SetWarning("Вже існує дорога такого або вищого рівня.");
+                btnConfirm.interactable = false;
+                return;
+            }
+            float diff = selectedRoad.buildCost - existing.roadData.buildCost;
+            cost = diff > 0 ? diff : 0;
+            SetWarning($"Покращення дороги. Вартість: {cost} у.о.");
+        }
+        else
+        {
+            SetWarning($"Будівництво нової дороги. Вартість: {cost} у.о.");
+        }
+
+        if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(cost))
+        {
+            SetWarning($"Недостатньо коштів! Вартість: {cost} у.о.");
+            btnConfirm.interactable = false;
+            return;
+        }
+
+        btnConfirm.interactable = true;
+    }
+
+    private void OnConfirm()
+    {
+        if (cityA == null || cityB == null) return;
+
+        int idx = roadTypeDropdown.value;
+        if (idx < 0 || idx >= RoadNetwork.Instance.availableRoadTypes.Count) return;
+
+        RoadData selectedRoad = RoadNetwork.Instance.availableRoadTypes[idx];
+
+        RoadConnection existing = RoadNetwork.Instance.GetRoad(cityA, cityB);
+        float cost = selectedRoad.buildCost;
+        if (existing != null)
+        {
+            float diff = selectedRoad.buildCost - existing.roadData.buildCost;
+            cost = diff > 0 ? diff : 0;
+        }
+
+        if (FinanceManager.Instance != null && FinanceManager.Instance.CanAfford(cost))
+        {
+            bool success = RoadNetwork.Instance.BuildRoad(cityA, cityB, selectedRoad);
+            if (success)
+            {
+                FinanceManager.Instance.AddExpense(cost);
+                ClosePanel();
+            }
+        }
+    }
+
+    private void OnCancel() => ClosePanel();
+
+    private void SetWarning(string msg)
+    {
+        if (warningText == null) return;
+        warningText.text = msg;
+        warningText.gameObject.SetActive(!string.IsNullOrEmpty(msg));
+    }
+}
+
+==================================================
+
 Назва файла: RouteBuilderPanel.cs
 
 using UnityEngine;
@@ -2348,8 +2753,6 @@ using System.Collections.Generic;
 public class RouteBuilderPanel : MonoBehaviour
 {
     public static RouteBuilderPanel Instance { get; private set; }
-
-    // ─── Inspector ───────────────────────────────────────────
 
     [Header("Кореневий об'єкт панелі")]
     public GameObject panelRoot;
@@ -2372,20 +2775,14 @@ public class RouteBuilderPanel : MonoBehaviour
     public Button btnCancel;
 
     [Header("Префаб маршруту (RouteDefinition + RouteVisualizer)")]
-    [Tooltip("Якщо пусто — створюється без підсвітки")]
     public GameObject routePrefab;
 
     [Header("Батько для нових маршрутів у Hierarchy")]
     public Transform routesParent;
 
-    // ─── Константи ───────────────────────────────────────────
     private const float KM_PER_UNIT = 50f;
-
-    // ─── Стан ────────────────────────────────────────────────
     private List<CityNode> currentStops = new List<CityNode>();
     private List<GameObject> stopRows = new List<GameObject>();
-
-    // ─── Lifecycle ───────────────────────────────────────────
 
     private void Awake()
     {
@@ -2395,7 +2792,7 @@ public class RouteBuilderPanel : MonoBehaviour
 
     private void Start()
     {
-        btnNewRoute?.onClick.AddListener(OpenPanel);
+        btnNewRoute?.onClick.AddListener(() => OpenPanel(null));
         btnConfirm?.onClick.AddListener(OnConfirm);
         btnCancel?.onClick.AddListener(OnCancel);
         panelRoot?.SetActive(false);
@@ -2404,22 +2801,19 @@ public class RouteBuilderPanel : MonoBehaviour
 
     private void Update()
     {
-        // Backspace — видалити останнє місто
         if (panelRoot != null && panelRoot.activeSelf)
             if (Keyboard.current != null && Keyboard.current.backspaceKey.wasPressedThisFrame)
                 RemoveLastCity();
     }
 
-    // ─── Відкрити / закрити ──────────────────────────────────
-
-    public void OpenPanel()
+    public void OpenPanel(CityNode startCity = null)
     {
         currentStops.Clear();
         ClearStopRows();
         SetWarning("");
         UpdateDistanceText();
         panelRoot?.SetActive(true);
-        MapClickHandler.Instance?.StartBuilding();
+        MapClickHandler.Instance?.StartBuilding(startCity);
     }
 
     private void ClosePanel()
@@ -2427,8 +2821,6 @@ public class RouteBuilderPanel : MonoBehaviour
         panelRoot?.SetActive(false);
         MapClickHandler.Instance?.StopBuilding();
     }
-
-    // ─── Callbacks від MapClickHandler ───────────────────────
 
     public void OnCityAdded(CityNode city, List<CityNode> current)
     {
@@ -2446,8 +2838,6 @@ public class RouteBuilderPanel : MonoBehaviour
         ValidateRoute();
     }
 
-    // ─── Видалення міст ──────────────────────────────────────
-
     private void RemoveLastCity()
     {
         if (currentStops.Count == 0) return;
@@ -2456,7 +2846,6 @@ public class RouteBuilderPanel : MonoBehaviour
         RebuildStopRows();
         UpdateDistanceText();
         ValidateRoute();
-        // Повідомити MapClickHandler
         MapClickHandler.Instance?.RemoveCityExternal(last, currentStops);
     }
 
@@ -2470,8 +2859,6 @@ public class RouteBuilderPanel : MonoBehaviour
         ValidateRoute();
         MapClickHandler.Instance?.RemoveCityExternal(city, currentStops);
     }
-
-    // ─── Список рядків зупинок ───────────────────────────────
 
     private void RebuildStopRows()
     {
@@ -2490,14 +2877,12 @@ public class RouteBuilderPanel : MonoBehaviour
             }
             else
             {
-                // Якщо prefab не призначений — створюємо мінімальний рядок
                 row = new GameObject($"StopRow_{i}", typeof(RectTransform));
                 if (stopsListParent != null)
                     row.transform.SetParent(stopsListParent, false);
                 var rt = row.GetComponent<RectTransform>();
                 rt.sizeDelta = new Vector2(0, 28);
 
-                // Текст назви міста
                 var textObj = new GameObject("Label", typeof(RectTransform));
                 textObj.transform.SetParent(row.transform, false);
                 var textRT = textObj.GetComponent<RectTransform>();
@@ -2510,7 +2895,6 @@ public class RouteBuilderPanel : MonoBehaviour
                 tmp.color = Color.white;
                 tmp.alignment = TextAlignmentOptions.MidlineLeft;
 
-                // Кнопка X
                 var btnObj = new GameObject("BtnRemove", typeof(RectTransform));
                 btnObj.transform.SetParent(row.transform, false);
                 var btnRT = btnObj.GetComponent<RectTransform>();
@@ -2534,13 +2918,11 @@ public class RouteBuilderPanel : MonoBehaviour
                 btn.onClick.AddListener(() => RemoveCityAt(captured));
             }
 
-            // Заповнити текст якщо є prefab зі стандартною структурою
             var labelTMP = row.transform.Find("Label")?.GetComponent<TextMeshProUGUI>();
             if (labelTMP == null) labelTMP = row.GetComponentInChildren<TextMeshProUGUI>();
             if (labelTMP != null)
                 labelTMP.text = $"{i + 1}. {GetTypeTag(city.cityType)} {city.cityName}";
 
-            // Кнопка X у prefab (якщо є)
             var removeBtn = row.transform.Find("BtnRemove")?.GetComponent<Button>();
             if (removeBtn != null)
             {
@@ -2551,7 +2933,6 @@ public class RouteBuilderPanel : MonoBehaviour
             stopRows.Add(row);
         }
 
-        // Рядок замикання кільця (лише текст, не кнопка)
         if (currentStops.Count >= 2)
         {
             var closingRow = CreateLabelRow($"(коло) -> {currentStops[0].cityName}",
@@ -2588,8 +2969,6 @@ public class RouteBuilderPanel : MonoBehaviour
         stopRows.Clear();
     }
 
-    // ─── Відстань ────────────────────────────────────────────
-
     private void UpdateDistanceText()
     {
         if (distanceText == null) return;
@@ -2609,8 +2988,6 @@ public class RouteBuilderPanel : MonoBehaviour
         }
         distanceText.text = $"Відстань кола: {totalKm:F0} км";
     }
-
-    // ─── Валідація ───────────────────────────────────────────
 
     private void ValidateRoute()
     {
@@ -2636,8 +3013,6 @@ public class RouteBuilderPanel : MonoBehaviour
         return null;
     }
 
-    // ─── Confirm / Cancel ────────────────────────────────────
-
     private void OnConfirm()
     {
         if (currentStops.Count < 2)
@@ -2654,17 +3029,15 @@ public class RouteBuilderPanel : MonoBehaviour
         RouteDefinition route = CreateRouteDefinition();
         if (route == null) { SetWarning("Помилка створення маршруту."); return; }
 
-        Debug.Log($"[RouteBuilderPanel] Маршрут '{route.routeName}' створено. Призначте транспорт через панель маршрутів.");
+        Debug.Log($"[RouteBuilderPanel] Маршрут '{route.routeName}' створено.");
 
-        // Повідомити панель маршрутів якщо є
         RoutesPanel.Instance?.OnRouteCreated(route);
-
         ClosePanel();
+
+        RouteVisualizer.RebuildAllHighlights();
     }
 
     private void OnCancel() => ClosePanel();
-
-    // ─── Створення RouteDefinition ───────────────────────────
 
     private RouteDefinition CreateRouteDefinition()
     {
@@ -2677,10 +3050,15 @@ public class RouteBuilderPanel : MonoBehaviour
             obj = new GameObject("Route_New");
             if (routesParent != null) obj.transform.SetParent(routesParent);
             obj.AddComponent<RouteDefinition>();
+            var vis = obj.AddComponent<RouteVisualizer>();
+            if (RoadNetwork.Instance != null) vis.linePrefab = RoadNetwork.Instance.roadLinePrefab;
         }
 
         var route = obj.GetComponent<RouteDefinition>();
         if (route == null) { Destroy(obj); return null; }
+
+        // Додаємо рандомний колір для нового маршруту якщо він створюється (щоб відрізнялись)
+        route.routeColor = new Color(Random.Range(0.2f, 1f), Random.Range(0.2f, 1f), Random.Range(0.2f, 1f));
 
         string first = currentStops[0].cityName;
         string last = currentStops[currentStops.Count - 1].cityName;
@@ -2691,10 +3069,11 @@ public class RouteBuilderPanel : MonoBehaviour
         foreach (var city in currentStops)
             route.stops.Add(new RouteStop { city = city });
 
+        var visualizer = obj.GetComponent<RouteVisualizer>();
+        if (visualizer != null) visualizer.BuildHighlightLines();
+
         return route;
     }
-
-    // ─── Допоміжні ───────────────────────────────────────────
 
     private void SetWarning(string msg)
     {

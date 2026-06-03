@@ -101,13 +101,13 @@ public class CityNode : MonoBehaviour
 
     private void OnDayChanged(GameDate date)
     {
-        // Щодня попит відновлюється на 30%
+        // Щодня попит відновлюється на 10% від максимуму
         foreach (var d in demands)
         {
-            int replenishC = Mathf.CeilToInt(d.maxCargo * 0.3f);
+            int replenishC = Mathf.CeilToInt(d.maxCargo * 0.10f);
             d.currentCargo = Mathf.Min(d.maxCargo, d.currentCargo + replenishC);
 
-            int replenishP = Mathf.CeilToInt(d.maxPassengers * 0.3f);
+            int replenishP = Mathf.CeilToInt(d.maxPassengers * 0.10f);
             d.currentPassengers = Mathf.Min(d.maxPassengers, d.currentPassengers + replenishP);
         }
     }

@@ -3,7 +3,6 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 
-
 public class RoutesPanel : MonoBehaviour
 {
     public static RoutesPanel Instance { get; private set; }
@@ -22,11 +21,8 @@ public class RoutesPanel : MonoBehaviour
     public Button btnToggle;
     public Button btnClose;
 
-    // Всі відомі маршрути (додаються при створенні або знаходяться на старті)
     private List<RouteDefinition> routes = new List<RouteDefinition>();
-    private List<GameObject>      rows   = new List<GameObject>();
-
-    // ─── Lifecycle ───────────────────────────────────────────
+    private List<GameObject> rows = new List<GameObject>();
 
     private void Awake()
     {
@@ -37,16 +33,13 @@ public class RoutesPanel : MonoBehaviour
     private void Start()
     {
         btnToggle?.onClick.AddListener(TogglePanel);
-        btnClose ?.onClick.AddListener(TogglePanel);
+        btnClose?.onClick.AddListener(TogglePanel);
         panelRoot?.SetActive(false);
 
-        // Знайти вже існуючі маршрути на сцені
         var existing = FindObjectsByType<RouteDefinition>(FindObjectsSortMode.None);
         foreach (var r in existing)
             if (!routes.Contains(r)) routes.Add(r);
     }
-
-    // ─── Відкрити / закрити ──────────────────────────────────
 
     private void TogglePanel()
     {
@@ -55,27 +48,19 @@ public class RoutesPanel : MonoBehaviour
         if (next) RebuildRows();
     }
 
-    // ─── Додавання маршруту ───────────────────────────────────
-
     public void OnRouteCreated(RouteDefinition route)
     {
         if (!routes.Contains(route))
             routes.Add(route);
 
-        // Якщо панель відкрита — оновити список
-        if (panelRoot != null && panelRoot.activeSelf)
-            RebuildRows();
+        if (panelRoot != null && panelRoot.activeSelf) RebuildRows();
     }
-
-    // ─── Побудова рядків ─────────────────────────────────────
 
     private void RebuildRows()
     {
-        // Очистити старі рядки
         foreach (var r in rows) if (r != null) Destroy(r);
         rows.Clear();
 
-        // Прибрати null-записи (видалені маршрути)
         routes.RemoveAll(r => r == null);
 
         if (routes.Count == 0)
@@ -88,9 +73,7 @@ public class RoutesPanel : MonoBehaviour
 
         foreach (var route in routes)
         {
-            var captured = route;
-            GameObject row = CreateRouteRow(route, captured);
-            rows.Add(row);
+            rows.Add(CreateRouteRow(route, route));
         }
     }
 
@@ -102,50 +85,35 @@ public class RoutesPanel : MonoBehaviour
             return CreateRowDynamic(route, captured);
     }
 
-    // ─── Рядок з prefab ──────────────────────────────────────
-
     private GameObject CreateRowFromPrefab(RouteDefinition route, RouteDefinition captured)
     {
         var row = Instantiate(routeRowPrefab, routesContent);
 
-        // Назва маршруту
         var nameTMP = row.transform.Find("Route_Name")?.GetComponent<TextMeshProUGUI>();
-        if (nameTMP != null)
-            nameTMP.text = route.routeName;
+        if (nameTMP != null) nameTMP.text = route.routeName;
 
-        // Статус: кількість ТЗ і статус
         var statusTMP = row.transform.Find("Route_Status")?.GetComponent<TextMeshProUGUI>();
-        if (statusTMP != null)
-            statusTMP.text = GetRouteStatusText(route);
+        if (statusTMP != null) statusTMP.text = GetRouteStatusText(route);
 
-        // Кнопка "Призначити ТЗ"
-        var btnAssign = row.transform.Find("Btn_Assign")?.GetComponent<Button>();
-        if (btnAssign != null)
-            btnAssign.onClick.AddListener(() => OpenAssignPanel(captured));
+        var btnAssign = row.transform.Find("Btn_Assign")?.GetComponent<Button>() ?? row.transform.Find("AssignButton")?.GetComponent<Button>();
+        if (btnAssign != null) btnAssign.onClick.AddListener(() => OpenAssignPanel(captured));
 
-        // Кнопка "Зупинити"
-        var btnStop = row.transform.Find("Btn_Stop")?.GetComponent<Button>();
-        if (btnStop != null)
-            btnStop.onClick.AddListener(() => StopRoute(captured, row));
+        var btnStop = row.transform.Find("Btn_Stop")?.GetComponent<Button>() ?? row.transform.Find("StopButton")?.GetComponent<Button>();
+        if (btnStop != null) btnStop.onClick.AddListener(() => StopRoute(captured, row));
 
         return row;
     }
 
-    // ─── Динамічний рядок (без prefab) ───────────────────────
-
     private GameObject CreateRowDynamic(RouteDefinition route, RouteDefinition captured)
     {
-        // Контейнер рядка
         var row = new GameObject($"RouteRow_{route.routeName}", typeof(RectTransform));
         if (routesContent != null) row.transform.SetParent(routesContent, false);
         var rowRT = row.GetComponent<RectTransform>();
         rowRT.sizeDelta = new Vector2(0, 70);
 
-        // Фон
         var bg = row.AddComponent<Image>();
         bg.color = new Color(0.12f, 0.15f, 0.12f, 0.9f);
 
-        // ── Назва маршруту ──
         var nameObj = new GameObject("Route_Name", typeof(RectTransform));
         nameObj.transform.SetParent(row.transform, false);
         var nameRT = nameObj.GetComponent<RectTransform>();
@@ -160,7 +128,6 @@ public class RoutesPanel : MonoBehaviour
         nameTMP.color = Color.white;
         nameTMP.alignment = TextAlignmentOptions.MidlineLeft;
 
-        // ── Статус / зупинки ──
         var statusObj = new GameObject("Route_Status", typeof(RectTransform));
         statusObj.transform.SetParent(row.transform, false);
         var statusRT = statusObj.GetComponent<RectTransform>();
@@ -174,7 +141,6 @@ public class RoutesPanel : MonoBehaviour
         statusTMP.color = new Color(0.75f, 0.75f, 0.75f);
         statusTMP.alignment = TextAlignmentOptions.MidlineLeft;
 
-        // ── Кнопка "Призначити ТЗ" ──
         var btnAssignObj = CreateSmallButton(row.transform,
             anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0.48f, 0.32f),
             offset: new Vector4(6, 3, -3, -3),
@@ -182,7 +148,6 @@ public class RoutesPanel : MonoBehaviour
             color: new Color(0.15f, 0.45f, 0.15f));
         btnAssignObj.GetComponent<Button>().onClick.AddListener(() => OpenAssignPanel(captured));
 
-        // ── Кнопка "Зупинити" ──
         var btnStopObj = CreateSmallButton(row.transform,
             anchorMin: new Vector2(0.52f, 0f), anchorMax: new Vector2(1f, 0.32f),
             offset: new Vector4(3, 3, -6, -3),
@@ -190,7 +155,6 @@ public class RoutesPanel : MonoBehaviour
             color: new Color(0.45f, 0.12f, 0.12f));
         btnStopObj.GetComponent<Button>().onClick.AddListener(() => StopRoute(captured, row));
 
-        // Розділювач
         var divObj = new GameObject("Divider", typeof(RectTransform));
         divObj.transform.SetParent(row.transform, false);
         var divRT = divObj.GetComponent<RectTransform>();
@@ -236,10 +200,8 @@ public class RoutesPanel : MonoBehaviour
         return obj;
     }
 
-    // ─── Дії ─────────────────────────────────────────────────
     private void OpenAssignPanel(RouteDefinition route)
     {
-        // Знайти вільні ТЗ
         var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
         List<VehicleController> idle = new List<VehicleController>();
         foreach (var v in all)
@@ -251,15 +213,12 @@ public class RoutesPanel : MonoBehaviour
             return;
         }
 
-        // Якщо є тільки один вільний ТЗ — призначаємо одразу
         if (idle.Count == 1)
         {
             AssignVehicle(idle[0], route);
             return;
         }
 
-        // Якщо є кілька — призначити перший і залогувати варіанти
-        // (повноцінний попап — наступний крок)
         Debug.Log($"[RoutesPanel] Знайдено {idle.Count} вільних ТЗ. Призначається перший: {idle[0].vehicleData.vehicleName}");
         AssignVehicle(idle[0], route);
     }
@@ -270,7 +229,7 @@ public class RoutesPanel : MonoBehaviour
         if (ok)
         {
             Debug.Log($"[RoutesPanel] {vehicle.vehicleData.vehicleName} призначено на '{route.routeName}'");
-            RebuildRows(); // оновити статус у списку
+            RebuildRows();
         }
         else
         {
@@ -280,7 +239,6 @@ public class RoutesPanel : MonoBehaviour
 
     private void StopRoute(RouteDefinition route, GameObject row)
     {
-        // Знайти всі ТЗ на цьому маршруті і зупинити
         var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
         foreach (var v in all)
             if (v.activeRoute == route) v.StopRoute();
@@ -289,20 +247,22 @@ public class RoutesPanel : MonoBehaviour
         if (route != null) Destroy(route.gameObject);
         if (row != null) { rows.Remove(row); Destroy(row); }
 
-        Debug.Log($"[RoutesPanel] Маршрут зупинено і видалено.");
+        // Оновлюємо решту маршрутів щоб їхні лінії правильно перешикувалися
+        Invoke(nameof(RebuildHighlightsDelayed), 0.1f);
     }
 
-    // ─── Допоміжні ───────────────────────────────────────────
+    private void RebuildHighlightsDelayed()
+    {
+        RouteVisualizer.RebuildAllHighlights();
+    }
 
     private string GetRouteStatusText(RouteDefinition route)
     {
-        // Підрахувати скільки ТЗ на цьому маршруті
         var all = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
         int count = 0;
         foreach (var v in all)
             if (v.activeRoute == route) count++;
 
-        // Зупинки
         string stops = "";
         if (route.stops != null && route.stops.Count > 0)
         {

@@ -36,14 +36,13 @@ public class RouteDefinition : MonoBehaviour
         return stops[0].city;
     }
 
-    public void ShowHighlight(bool hasVehicle)
+    public void ShowHighlight()
     {
-        Color color = hasVehicle ? routeColor : new Color(routeColor.r * 0.4f, routeColor.g * 0.4f, routeColor.b * 0.4f, 0.8f);
         foreach (var lr in highlightLines)
         {
             if (lr == null) continue;
-            lr.startColor = color;
-            lr.endColor = color;
+            lr.startColor = routeColor;
+            lr.endColor = routeColor;
             lr.enabled = true;
         }
     }

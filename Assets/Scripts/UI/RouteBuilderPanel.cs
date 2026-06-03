@@ -60,7 +60,6 @@ public class RouteBuilderPanel : MonoBehaviour
                 RemoveLastCity();
     }
 
-    // Перевантажений метод, який одразу призначає обране місто першим і відправляє його в малювальник
     public void OpenPanel(CityNode startCity = null)
     {
         currentStops.Clear();
@@ -288,6 +287,8 @@ public class RouteBuilderPanel : MonoBehaviour
 
         RoutesPanel.Instance?.OnRouteCreated(route);
         ClosePanel();
+
+        RouteVisualizer.RebuildAllHighlights();
     }
 
     private void OnCancel() => ClosePanel();
@@ -303,10 +304,15 @@ public class RouteBuilderPanel : MonoBehaviour
             obj = new GameObject("Route_New");
             if (routesParent != null) obj.transform.SetParent(routesParent);
             obj.AddComponent<RouteDefinition>();
+            var vis = obj.AddComponent<RouteVisualizer>();
+            if (RoadNetwork.Instance != null) vis.linePrefab = RoadNetwork.Instance.roadLinePrefab;
         }
 
         var route = obj.GetComponent<RouteDefinition>();
         if (route == null) { Destroy(obj); return null; }
+
+        // Додаємо рандомний колір для нового маршруту якщо він створюється (щоб відрізнялись)
+        route.routeColor = new Color(Random.Range(0.2f, 1f), Random.Range(0.2f, 1f), Random.Range(0.2f, 1f));
 
         string first = currentStops[0].cityName;
         string last = currentStops[currentStops.Count - 1].cityName;
@@ -316,6 +322,9 @@ public class RouteBuilderPanel : MonoBehaviour
         route.stops.Clear();
         foreach (var city in currentStops)
             route.stops.Add(new RouteStop { city = city });
+
+        var visualizer = obj.GetComponent<RouteVisualizer>();
+        if (visualizer != null) visualizer.BuildHighlightLines();
 
         return route;
     }

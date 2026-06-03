@@ -20,6 +20,9 @@ public class RoadNetwork : MonoBehaviour
     [Header("Префаб лінії дороги")]
     public GameObject roadLinePrefab;
 
+    [Header("Список доступних типів доріг (для будівництва)")]
+    public List<RoadData> availableRoadTypes;
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
@@ -52,7 +55,19 @@ public class RoadNetwork : MonoBehaviour
 
     public bool BuildRoad(CityNode a, CityNode b, RoadData roadData)
     {
-        if (RoadExists(a, b)) return false;
+        RoadConnection existing = GetRoad(a, b);
+
+        if (existing != null)
+        {
+            // Upgrade
+            if (existing.roadData.roadType >= roadData.roadType) return false;
+
+            existing.roadData = roadData;
+            UpdateLineVisuals(existing.lineRenderer, roadData);
+            FinanceManager.Instance?.RegisterRoadValue(roadData.buildCost);
+            Debug.Log($"Дорога покращена: {a.cityName} ↔ {b.cityName}");
+            return true;
+        }
 
         var lr = CreateLine(a, b, roadData);
 
@@ -80,14 +95,29 @@ public class RoadNetwork : MonoBehaviour
         lr.positionCount = 2;
         lr.SetPosition(0, a.transform.position);
         lr.SetPosition(1, b.transform.position);
-        lr.startWidth = lr.endWidth = 0.12f;
 
-        Color color = Color.gray;
-        if (roadData != null && roadData.roadType == RoadType.Highway)
-            color = new Color(0.22f, 0.42f, 0.79f);
-        lr.startColor = lr.endColor = color;
+        UpdateLineVisuals(lr, roadData);
+        lr.sortingOrder = 1;
 
         return lr;
+    }
+
+    private void UpdateLineVisuals(LineRenderer lr, RoadData roadData)
+    {
+        if (lr == null) return;
+
+        lr.startWidth = lr.endWidth = 0.12f;
+        Color color = Color.gray;
+        if (roadData != null)
+        {
+            switch (roadData.roadType)
+            {
+                case RoadType.Dirt: color = new Color(0.4f, 0.25f, 0.1f); break;
+                case RoadType.Asphalt: color = new Color(0.4f, 0.4f, 0.4f); lr.startWidth = lr.endWidth = 0.16f; break;
+                case RoadType.Highway: color = new Color(0.22f, 0.42f, 0.79f); lr.startWidth = lr.endWidth = 0.18f; break;
+            }
+        }
+        lr.startColor = lr.endColor = color;
     }
 
     public List<CityNode> GetNeighbors(CityNode city)
@@ -103,6 +133,7 @@ public class RoadNetwork : MonoBehaviour
 
     public List<CityNode> FindPath(CityNode start, CityNode end)
     {
+        if (start == end) return new List<CityNode> { start };
         var queue = new Queue<CityNode>();
         var visited = new Dictionary<CityNode, CityNode>();
         queue.Enqueue(start);
@@ -124,26 +155,11 @@ public class RoadNetwork : MonoBehaviour
         }
         return null;
     }
+
     public void SetRouteHighlight(RouteDefinition route, bool hasVehicle)
     {
         if (route == null || !route.IsValid()) return;
-
-        Color color = hasVehicle
-            ? new Color(1.0f, 0.55f, 0.0f) // яскравий оранжевий
-            : new Color(0.6f, 0.35f, 0.0f); // тьмяний оранжевий
-
-        for (int i = 0; i < route.stops.Count; i++)
-        {
-            CityNode a = route.stops[i].city;
-            CityNode b = route.stops[(i + 1) % route.stops.Count].city;
-
-            RoadConnection road = GetRoad(a, b);
-            if (road?.lineRenderer != null)
-            {
-                road.lineRenderer.startColor = color;
-                road.lineRenderer.endColor = color;
-            }
-        }
+        route.ShowHighlight();
     }
 
     private List<CityNode> BuildPath(Dictionary<CityNode, CityNode> visited,
@@ -151,7 +167,7 @@ public class RoadNetwork : MonoBehaviour
     {
         var path = new List<CityNode>();
         var current = end;
-        while (current != start)
+        while (current != null)
         {
             path.Add(current);
             current = visited[current];
@@ -159,5 +175,4 @@ public class RoadNetwork : MonoBehaviour
         path.Reverse();
         return path;
     }
-
 }
