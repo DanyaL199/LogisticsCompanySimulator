@@ -41,7 +41,7 @@ public class VehicleController : MonoBehaviour
     private RouteDefinition pendingRoute;
 
     [Header("Налаштування")]
-    public float visualSpeed = 1f; 
+    public float visualSpeed = 1f; // Зменшено з 3f для більш реалістичного часу в дорозі
 
     private const float BASE_RATE = 10f;
     private const float KM_PER_UNIT = 60f;
@@ -105,7 +105,7 @@ public class VehicleController : MonoBehaviour
         if (route == null || !route.IsValid()) return false;
 
         activeRoute = route;
-        gameObject.SetActive(true);
+        gameObject.SetActive(true); // Показуємо авто на мапі (якщо воно щойно куплене)
 
         if (isFirstDispatch)
         {
@@ -114,7 +114,7 @@ public class VehicleController : MonoBehaviour
             isFirstDispatch = false;
 
             status = VehicleStatus.Loading;
-            waitHoursLeft = 2;
+            waitHoursLeft = 2; // Завантаження 2 години
         }
         else
         {
@@ -176,7 +176,7 @@ public class VehicleController : MonoBehaviour
         CityNode next = activeRoute.GetNextCity(currentCity);
         RoadConnection road = RoadNetwork.Instance?.GetRoad(currentCity, next);
 
-        if (road == null) { StopRoute(); return; }
+        if (road == null) { StopRoute(); return; } // Немає дороги
 
         RotateTowards(next.transform.position);
         float distUnits = Vector3.Distance(transform.position, next.transform.position);
@@ -195,18 +195,23 @@ public class VehicleController : MonoBehaviour
         CityNode prev = currentCity;
         currentCity = city;
 
+        // Видаємо прибуток, якщо привезли куди треба
         if (currentLoad > 0 && loadDestination == city)
         {
             float inc = (distKm / KM_PER_UNIT) * currentLoad * (prev != null ? prev.activityLevel / 3f : 1f) * BASE_RATE;
             FinanceManager.Instance?.AddIncome(inc);
+            if (activeRoute != null) activeRoute.incomeStats += inc;
             currentLoad = 0;
             loadDestination = null;
         }
 
-        FinanceManager.Instance?.AddExpense((distKm / 100f) * vehicleData.fuelPer100km * FUEL_PRICE);
+        // Віднімаємо пальне
+        float fuelCost = (distKm / 100f) * vehicleData.fuelPer100km * FUEL_PRICE;
+        FinanceManager.Instance?.AddExpense(fuelCost);
+        if (activeRoute != null) activeRoute.incomeStats -= fuelCost;
         ApplyWear(road, distKm);
 
-        if (status == VehicleStatus.Broken) return;
+        if (status == VehicleStatus.Broken) return; // зламався по дорозі
 
         if (condition <= globalRepairThreshold)
         {
@@ -221,7 +226,7 @@ public class VehicleController : MonoBehaviour
         }
 
         status = VehicleStatus.Loading;
-        waitHoursLeft = 2;
+        waitHoursLeft = 2; // Знову завантаження
     }
 
     private void ApplyWear(RoadConnection road, float distKm)
@@ -235,7 +240,7 @@ public class VehicleController : MonoBehaviour
         if (condition <= 0f)
         {
             status = VehicleStatus.Broken;
-            moveTween?.Kill();
+            moveTween?.Kill(); // Машина зупинилась прямо на трасі
         }
     }
 
@@ -276,7 +281,7 @@ public class VehicleController : MonoBehaviour
         if (currentCity == workshop) { TryStartRepairing(); return; }
 
         var path = RoadNetwork.Instance?.FindPath(currentCity, workshop);
-        if (path == null || path.Count <= 1) { return; }
+        if (path == null || path.Count <= 1) { return; } // Немає шляху до майстерні
 
         status = VehicleStatus.ReturningToWorkshop;
         MoveAlongPath(path, 1, workshop, false);
@@ -332,6 +337,7 @@ public class VehicleController : MonoBehaviour
             }
             else
             {
+                // Нема грошей на ремонт, чекаємо
                 status = VehicleStatus.Broken;
             }
         }
@@ -356,11 +362,12 @@ public class VehicleController : MonoBehaviour
         if (status == VehicleStatus.Repairing || status == VehicleStatus.ReturningToWorkshop) return;
 
         targetWorkshop = GetNearestWorkshopWithFreeSlot();
-        if (targetWorkshop == null) return;
+        if (targetWorkshop == null) return; // Немає вільних майстерень
 
         if (status == VehicleStatus.Broken)
         {
-            float towCost = vehicleData.purchaseCost * 0.05f;
+            // Миттєвий евакуатор (платно)
+            float towCost = vehicleData.purchaseCost * 0.05f; // 5% від вартості як плата за евакуатор
             if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(towCost)) return;
             FinanceManager.Instance?.AddExpense(towCost);
 
@@ -370,6 +377,7 @@ public class VehicleController : MonoBehaviour
         }
         else
         {
+            // Своїм ходом
             pendingRoute = activeRoute;
             StopRoute();
             DriveToWorkshop(targetWorkshop);
@@ -383,7 +391,7 @@ public class VehicleController : MonoBehaviour
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0f, 0f, angle);
         Vector3 scale = transform.localScale;
-        scale.y = dir.x < 0 ? -Mathf.Abs(scale.y) : Mathf.Abs(scale.y);
+        scale.y = dir.x < 0 ? -Mathf.Abs(scale.y) : Mathf.Abs(scale.y); // Переворот спрайта якщо їде вліво
         transform.localScale = scale;
     }
 
