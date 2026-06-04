@@ -87,7 +87,6 @@ public class GameTimeManager : MonoBehaviour
     [Header("Поточна дата (тільки читання)")]
     [SerializeField] private GameDate currentDate;
 
-    // 1 година = 10/24 реальної секунди при звичайній швидкості (1x)
     private float baseSecondsPerHour = 10f / 24f;
     private float timer = 0f;
 
@@ -115,10 +114,8 @@ public class GameTimeManager : MonoBehaviour
     {
         if (timeSpeed == 0) return;
 
-        // множимо реальний час на множник швидкості (1, 2 або 4)
         timer += Time.deltaTime * timeSpeed;
 
-        // Перевіряємо завжди з базовим часом
         while (timer >= baseSecondsPerHour)
         {
             timer -= baseSecondsPerHour;
@@ -166,19 +163,19 @@ public class GameTimeManager : MonoBehaviour
         {
             case 0:
                 timeSpeed = 0;
-                Time.timeScale = 0f; // Зупиняє DOTween та фізику (Пауза)
+                Time.timeScale = 0f; 
                 break;
             case 1:
                 timeSpeed = 1;
-                Time.timeScale = 1f; // Звичайна швидкість
+                Time.timeScale = 1f; 
                 break;
             case 2:
                 timeSpeed = 2;
-                Time.timeScale = 2f; // Пришвидшує DOTween в 2 рази
+                Time.timeScale = 2f; 
                 break;
             case 3:
                 timeSpeed = 4;
-                Time.timeScale = 4f; // Пришвидшує DOTween в 4 рази
+                Time.timeScale = 4f; 
                 break;
             default:
                 timeSpeed = 1;

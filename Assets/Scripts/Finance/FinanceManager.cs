@@ -39,7 +39,6 @@ public class FinanceManager : MonoBehaviour
     {
         foreach (var v in vehicles)
         {
-            // Щоденне абонентське ТО (незначне)
             if (v != null) AddExpense(v.vehicleData.maintenanceCost / 30f);
         }
     }
@@ -49,7 +48,6 @@ public class FinanceManager : MonoBehaviour
         if (WageManager.Instance != null)
             AddExpense(WageManager.Instance.GetTotalMonthlyWageCost(vehicles.Count));
 
-        // Обслуговування майстерень
         float facilitiesCost = 0f;
         var allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
         foreach (var c in allCities)

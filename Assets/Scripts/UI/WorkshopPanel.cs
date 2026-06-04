@@ -67,13 +67,13 @@ public class WorkshopPanel : MonoBehaviour
         }
     }
 
-    // Створює дуже чисту і компактну текстову плашку без нагромадження UI елементів
+    
     private GameObject CreateMinimalisticRow()
     {
         var row = new GameObject("RepairSlot", typeof(RectTransform));
         row.transform.SetParent(contentTransform, false);
         var rt = row.GetComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(0, 30); // Компактна висота
+        rt.sizeDelta = new Vector2(0, 30); 
 
         var bg = row.AddComponent<Image>();
         bg.color = new Color(0.15f, 0.15f, 0.15f, 0.9f);

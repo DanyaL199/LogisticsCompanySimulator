@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public enum CityType { Industrial, Trade, Tourist }
 
-// Тепер попит розділено на товари та людей!
+
 [System.Serializable]
 public class CityDemand
 {
@@ -32,7 +32,7 @@ public class CityNode : MonoBehaviour
 
     [Header("Майстерня")]
     public bool hasWorkshop = false;
-    public int repairSlots = 2; // Зі старту 2 слоти
+    public int repairSlots = 2; 
     public const int MAX_REPAIR_SLOTS = 5;
 
     [Header("Попит (Автоматично генерується)")]
@@ -48,12 +48,12 @@ public class CityNode : MonoBehaviour
         var sr = GetComponent<SpriteRenderer>();
         if (sr != null)
         {
-            // Зробимо так, щоб міста малювалися над дорогами та їх лініями
+         
             sr.sortingLayerName = "Roads";
             sr.sortingOrder = 30;
         }
 
-        // Генеруємо рандомний попит між містами після мікро-затримки (щоб всі міста створились)
+
         Invoke(nameof(GenerateRandomDemands), 0.1f);
 
         if (GameTimeManager.Instance != null)
@@ -81,17 +81,17 @@ public class CityNode : MonoBehaviour
 
         foreach (var c in allCities)
         {
-            if (c == this) continue; // Немає попиту везти до самого себе
+            if (c == this) continue; 
 
             CityDemand d = new CityDemand();
             d.destination = c;
             d.annualGrowth = Random.Range(0.01f, 0.05f);
 
-            // Початковий попит від 80 до 400
+
             d.currentCargo = Random.Range(80, 401);
             d.currentPassengers = Random.Range(80, 401);
 
-            // Максимальний попит в 5 разів більше
+
             d.maxCargo = d.currentCargo * 5;
             d.maxPassengers = d.currentPassengers * 5;
 
@@ -101,7 +101,7 @@ public class CityNode : MonoBehaviour
 
     private void OnDayChanged(GameDate date)
     {
-        // Щодня попит відновлюється на 10% від максимуму (люди приходять на зупинку, вантажі на склад)
+
         foreach (var d in demands)
         {
             int replenishC = Mathf.CeilToInt(d.maxCargo * 0.10f);
@@ -136,7 +136,7 @@ public class CityNode : MonoBehaviour
                 repairingHere.Add(v);
         }
 
-        float repairAmountPerHour = Mathf.Max(0.1f, mechanics * 1f) / 24f; // 1 очко в день за 1 механіка, мінімум 0.1 щоб авто не зависли назавжди без механіків
+        float repairAmountPerHour = Mathf.Max(25f, mechanics * 40f) / 24f; 
         foreach (var v in repairingHere)
         {
             v.condition += repairAmountPerHour;
@@ -144,7 +144,7 @@ public class CityNode : MonoBehaviour
         }
     }
 
-    // Тепер ми перевіряємо, який тип ми хочемо забрати!
+
     public int TakeUnits(CityNode destination, int capacity, VehicleType type)
     {
         var d = demands.Find(x => x.destination == destination);
@@ -164,7 +164,7 @@ public class CityNode : MonoBehaviour
         }
     }
 
-    // Який попит для конкретного типу?
+
     public int GetDemandTo(CityNode destination, VehicleType type)
     {
         var d = demands.Find(x => x.destination == destination);
@@ -205,7 +205,7 @@ public class CityNode : MonoBehaviour
 
     public bool GeneratesIncomeFor(VehicleType vt)
     {
-        // Для базових споживань (їзда пустим) зберігаємо стару логіку профільності:
+        
         if (cityType == CityType.Industrial) return vt == VehicleType.Cargo;
         if (cityType == CityType.Tourist) return vt == VehicleType.Passenger;
         return true;

@@ -36,7 +36,6 @@ public class MapClickHandler : MonoBehaviour
         allCities = FindObjectsByType<CityNode>(FindObjectsSortMode.None);
     }
 
-    // Додано підтримку стартового міста
     public void StartBuilding(CityNode startCity = null)
     {
         IsActive = true;

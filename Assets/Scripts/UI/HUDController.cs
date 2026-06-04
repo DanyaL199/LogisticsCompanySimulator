@@ -20,17 +20,15 @@ public class HUDController : MonoBehaviour
 
     private void Start()
     {
-        // Підписати кнопки
+
         btnPause.onClick.AddListener(() => SetSpeed(0));
         btn1x.onClick.AddListener(() => SetSpeed(1));
         btn2x.onClick.AddListener(() => SetSpeed(2));
         btn4x.onClick.AddListener(() => SetSpeed(3));
 
-        // Підписатись на зміну часу
         if (GameTimeManager.Instance != null)
             GameTimeManager.Instance.OnHourChanged += OnHourChanged;
 
-        // Початкові значення
         UpdateBalance();
         UpdateSpeedButtons();
     }
@@ -43,7 +41,6 @@ public class HUDController : MonoBehaviour
 
     private void Update()
     {
-        // Баланс оновлюємо кожен кадр бо змінюється часто
         UpdateBalance();
     }
 
@@ -58,10 +55,10 @@ public class HUDController : MonoBehaviour
         if (balanceText == null || FinanceManager.Instance == null) return;
 
         float balance = FinanceManager.Instance.balance;
-        balanceText.text = FormatMoney(balance) + " у.о.";
+        balanceText.text = FormatMoney(balance) + " грн";
         balanceText.color = balance >= 0
-            ? new Color(1f, 0.85f, 0f)   // золотий
-            : new Color(1f, 0.2f, 0.2f); // червоний якщо від'ємний
+            ? new Color(1f, 0.85f, 0f)   
+            : new Color(1f, 0.2f, 0.2f); 
     }
 
     private void SetSpeed(int speed)
@@ -89,13 +86,11 @@ public class HUDController : MonoBehaviour
             img.color = isActive ? colorActive : colorInactive;
     }
 
-    // Форматування числа: 120000 → "120 000"
     private string FormatMoney(float value)
     {
         bool negative = value < 0;
         string s = Mathf.Abs(value).ToString("F0");
 
-        // Додати пробіли як роздільники тисяч
         string result = "";
         int count = 0;
         for (int i = s.Length - 1; i >= 0; i--)

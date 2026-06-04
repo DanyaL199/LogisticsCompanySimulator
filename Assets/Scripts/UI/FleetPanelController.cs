@@ -5,6 +5,8 @@ using UnityEngine.UI;
 
 public class FleetPanelController : MonoBehaviour
 {
+    public static FleetPanelController Instance { get; private set; }
+
     [Header("UI Elements")]
     public GameObject fleetPanel;
     public Transform contentTransform;
@@ -16,12 +18,17 @@ public class FleetPanelController : MonoBehaviour
 
     private List<VehicleController> trackedVehicles = new List<VehicleController>();
     private List<GameObject> activeRows = new List<GameObject>();
-    private bool isPanelOpen = false;
     private float refreshTimer = 0f;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
 
     private void Start()
     {
-        fleetPanel.SetActive(false);
+        if (fleetPanel != null) fleetPanel.SetActive(false);
         if (btnToggleFleet != null) btnToggleFleet.onClick.AddListener(TogglePanel);
         if (btnCloseFleet != null) btnCloseFleet.onClick.AddListener(ClosePanel);
     }
@@ -31,31 +38,44 @@ public class FleetPanelController : MonoBehaviour
         if (!trackedVehicles.Contains(vc))
         {
             trackedVehicles.Add(vc);
-            if (isPanelOpen) UpdateRows();
+            if (fleetPanel != null && fleetPanel.activeSelf) UpdateRows();
         }
     }
 
-    private void TogglePanel()
+    private int lastToggleFrame = -1;
+
+    public void TogglePanel()
     {
-        isPanelOpen = !isPanelOpen;
-        fleetPanel.SetActive(isPanelOpen);
-        if (isPanelOpen) UpdateRows();
+        if (Time.frameCount == lastToggleFrame) return;
+        lastToggleFrame = Time.frameCount;
+
+        if (fleetPanel == null) return;
+        bool next = !fleetPanel.activeSelf;
+        fleetPanel.SetActive(next);
+
+        if (next)
+        {
+            if (RoutesPanel.Instance != null) RoutesPanel.Instance.ClosePanel();
+
+
+            UpdateRows();
+        }
     }
 
-    private void ClosePanel()
+    public void ClosePanel()
     {
-        isPanelOpen = false;
-        fleetPanel.SetActive(false);
+        if (fleetPanel != null) fleetPanel.SetActive(false);
     }
 
     private void Update()
     {
-        if (!isPanelOpen) return;
+        if (fleetPanel == null || !fleetPanel.activeSelf) return;
+
         refreshTimer += Time.deltaTime;
-        if (refreshTimer >= 0.5f)
+        if (refreshTimer >= 1f)
         {
             refreshTimer = 0f;
-            UpdateRows();
+            UpdateRowsStats();
         }
     }
 
@@ -65,9 +85,22 @@ public class FleetPanelController : MonoBehaviour
 
         while (activeRows.Count < trackedVehicles.Count)
         {
+            if (vehicleRowPrefab == null)
+            {
+                Debug.LogError("vehicleRowPrefab is missing! Please assign it in Inspector.");
+                break;
+            }
+
             GameObject newRow = Instantiate(vehicleRowPrefab, contentTransform);
+
+            if (newRow.GetComponent<VehicleRowUpdater>() == null)
+            {
+                newRow.AddComponent<VehicleRowUpdater>();
+            }
+
             activeRows.Add(newRow);
         }
+
         while (activeRows.Count > trackedVehicles.Count)
         {
             GameObject rowToRemove = activeRows[activeRows.Count - 1];
@@ -75,54 +108,86 @@ public class FleetPanelController : MonoBehaviour
             Destroy(rowToRemove);
         }
 
-        for (int i = 0; i < trackedVehicles.Count; i++)
+        int rowsToUpdate = Mathf.Min(activeRows.Count, trackedVehicles.Count);
+        for (int i = 0; i < rowsToUpdate; i++)
         {
-            VehicleController v = trackedVehicles[i];
-            GameObject row = activeRows[i];
+            UpdateRowContent(activeRows[i], trackedVehicles[i]);
+        }
+    }
 
-            var nameText = row.transform.Find("Name_Text")?.GetComponent<TextMeshProUGUI>();
-            if (nameText) nameText.text = v.vehicleData != null ? $"{v.vehicleData.vehicleName}\n<size=80%>{v.customName}</size>" : "Транспорт";
+    private void UpdateRowContent(GameObject row, VehicleController v)
+    {
+        var updater = row.GetComponent<VehicleRowUpdater>();
+        if (updater == null) return;
 
-            var infoText = row.transform.Find("Info_Text")?.GetComponent<TextMeshProUGUI>();
-            if (infoText)
-            {
-                string loadInfo = v.currentLoad > 0 ? $"Вантаж: {v.currentLoad}/{v.vehicleData?.maxCapacity}" : "Порожній";
-                infoText.text = $"Швидкість: {v.vehicleData?.maxSpeedKmh} км/год | Пальне: {v.vehicleData?.fuelPer100km} л\n{loadInfo}";
-            }
+        updater.vehicle = v;
+        updater.UpdateData();
 
-            var statusText = row.transform.Find("Status_Text")?.GetComponent<TextMeshProUGUI>();
-            if (statusText) statusText.text = $"{v.status} ({v.condition:F0}%)";
 
-            var condBar = row.transform.Find("Condition_Bar")?.GetComponent<Image>();
-            if (condBar) { condBar.gameObject.SetActive(true); condBar.fillAmount = v.condition / 100f; }
+        if (updater.btnSell != null)
+        {
+            updater.btnSell.onClick.RemoveAllListeners();
+            updater.btnSell.onClick.AddListener(() => {
+                if (FinanceManager.Instance != null && v.vehicleData != null)
+                    FinanceManager.Instance.AddIncome(v.vehicleData.purchaseCost * 0.4f);
+                trackedVehicles.Remove(v);
+                Destroy(v.gameObject);
+                UpdateRows();
+            });
+        }
 
-            // "Евакуація"
-            var repairBtn = row.transform.Find("Repair_Button")?.GetComponent<Button>() ?? row.transform.Find("Btn_Repair")?.GetComponent<Button>();
-            if (repairBtn)
-            {
-                repairBtn.gameObject.SetActive(true);
-                repairBtn.onClick.RemoveAllListeners();
-                repairBtn.onClick.AddListener(() => v.RequestRepair());
-                repairBtn.interactable = v.condition <= 30f || v.status == VehicleStatus.Broken; // Можна і заздалегідь на ремонт
-            }
+        if (updater.btnRepair != null)
+        {
+            updater.btnRepair.onClick.RemoveAllListeners();
+            updater.btnRepair.onClick.AddListener(() => {
+                v.RequestRepair();
+                updater.UpdateStats();
+                if (v.status != VehicleStatus.Repairing && v.status != VehicleStatus.ReturningToWorkshop)
+                {
+                    if (NotificationController.Instance != null) NotificationController.Instance.Show("Немає доступної майстерні або вільних місць!", Color.red);
+                }
+            });
+        }
 
-            // "Продати"
-            var sellBtn = row.transform.Find("Btn_Sell")?.GetComponent<Button>();
-            if (sellBtn)
-            {
-                sellBtn.gameObject.SetActive(true);
-                sellBtn.onClick.RemoveAllListeners();
-                sellBtn.onClick.AddListener(() => {
-                    if (FinanceManager.Instance != null && v.vehicleData != null)
-                        FinanceManager.Instance.AddIncome(v.vehicleData.purchaseCost * 0.4f);
-                    trackedVehicles.Remove(v);
-                    Destroy(v.gameObject);
-                    UpdateRows();
-                });
-            }
+        if (updater.routeDropdown != null)
+        {
+            UpdateRouteDropdown(updater.routeDropdown, v);
+        }
+        else if (updater.btnNextRoute != null)
+        {
+            updater.btnNextRoute.onClick.RemoveAllListeners();
+            updater.btnNextRoute.onClick.AddListener(() => {
+                CycleToNextRoute(v);
+                UpdateRowsStats();
+            });
+        }
+    }
 
-            var routeDropdown = row.transform.Find("Route_Dropdown")?.GetComponent<TMP_Dropdown>();
-            if (routeDropdown) { routeDropdown.gameObject.SetActive(true); UpdateRouteDropdown(routeDropdown, v); }
+    private void UpdateRowsStats()
+    {
+        var updaters = contentTransform.GetComponentsInChildren<VehicleRowUpdater>();
+        foreach (var u in updaters) u.UpdateStats();
+    }
+
+    private void CycleToNextRoute(VehicleController v)
+    {
+        RouteDefinition[] allRoutes = FindObjectsByType<RouteDefinition>(FindObjectsSortMode.None);
+        if (allRoutes.Length == 0) return;
+
+        int currentIndex = -1;
+        for (int i = 0; i < allRoutes.Length; i++)
+        {
+            if (allRoutes[i] == v.activeRoute) currentIndex = i;
+        }
+
+        int nextIndex = currentIndex + 1;
+        if (nextIndex >= allRoutes.Length) 
+        {
+            v.StopRoute();
+        }
+        else
+        {
+            v.StartRoute(allRoutes[nextIndex]);
         }
     }
 
@@ -135,9 +200,15 @@ public class FleetPanelController : MonoBehaviour
         for (int i = 0; i < allRoutes.Length; i++)
         {
             var route = allRoutes[i];
-            string shortName = route.routeName.Length > 20 ? route.routeName.Substring(0, 18) + "..." : route.routeName;
-            options.Add($"{shortName} ({route.stops.Count})");
-            // Highlight route assigned to the vehicle
+            string routeTitle = route.routeName;
+            if (route.stops != null && route.stops.Count > 0)
+            {
+                var names = new List<string>();
+                foreach (var s in route.stops) if (s?.city != null) names.Add(s.city.cityName);
+                routeTitle = string.Join(" - ", names);
+            }
+            options.Add(routeTitle);
+
             if (v.activeRoute == route || v.status == VehicleStatus.ReturningToWorkshop)
             {
                 if (v.activeRoute == route || (v.status == VehicleStatus.ReturningToWorkshop))
@@ -145,24 +216,191 @@ public class FleetPanelController : MonoBehaviour
             }
         }
 
-        if (dropdown.options.Count != options.Count || dropdown.value != currentIndex)
-        {
-            dropdown.ClearOptions();
-            dropdown.AddOptions(options);
-            dropdown.SetValueWithoutNotify(currentIndex);
+        dropdown.ClearOptions();
+        dropdown.AddOptions(options);
+        dropdown.SetValueWithoutNotify(currentIndex);
 
-            dropdown.onValueChanged.RemoveAllListeners();
-            dropdown.onValueChanged.AddListener((index) => {
-                if (index == 0)
+        dropdown.onValueChanged.RemoveAllListeners();
+        dropdown.onValueChanged.AddListener((index) => {
+            if (index == 0)
+            {
+                v.StopRoute();
+            }
+            else
+            {
+                RouteDefinition selectedRoute = allRoutes[index - 1];
+                v.StartRoute(selectedRoute);
+            }
+
+
+            var updater = dropdown.GetComponentInParent<VehicleRowUpdater>();
+            if (updater != null) updater.UpdateStats();
+        });
+    }
+}
+
+public class VehicleRowUpdater : MonoBehaviour
+{
+    public VehicleController vehicle;
+    public TextMeshProUGUI nameText;
+    public Image iconImage;
+    public Image condFill;
+    public TextMeshProUGUI statsText;
+    public TextMeshProUGUI routeText;
+
+    public Button btnSell;
+    public Button btnRepair;
+    public TMP_Dropdown routeDropdown;
+    public Button btnNextRoute;
+
+    private bool isResolved = false;
+
+    private void AutoResolveReferences()
+    {
+        if (isResolved) return;
+        isResolved = true;
+
+        TMP_Dropdown[] allDropdowns = GetComponentsInChildren<TMP_Dropdown>(true);
+        if (allDropdowns.Length > 0 && routeDropdown == null)
+        {
+            routeDropdown = allDropdowns[0];
+            if (routeDropdown.template != null)
+            {
+                var itemText = routeDropdown.template.GetComponentInChildren<TextMeshProUGUI>(true);
+                if (itemText != null)
                 {
-                    v.StopRoute();
+                    itemText.textWrappingMode = TextWrappingModes.NoWrap;
+                    itemText.overflowMode = TextOverflowModes.Overflow;
+                }
+            }
+        }
+
+        Button[] allButtons = GetComponentsInChildren<Button>(true);
+        foreach (var b in allButtons)
+        {
+            if (routeDropdown != null && b.transform.IsChildOf(routeDropdown.transform)) continue;
+
+            string btnName = b.gameObject.name.ToLower();
+            string textLower = "";
+            var txt = b.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (txt != null && !string.IsNullOrEmpty(txt.text)) textLower = txt.text.ToLower().Trim();
+
+            if (btnName.Contains("repair") || btnName.Contains("fix") || textLower.Contains("fix") || textLower.Contains("repair") || textLower.Contains("ремонт"))
+            {
+                if (btnRepair == null) btnRepair = b;
+            }
+            else if (btnName.Contains("sell") || btnName.Contains("del") || btnName.Contains("remove") || textLower == "x" || textLower.Contains("sell") || textLower.Contains("продати") || textLower.Contains("del") || textLower.Contains("видалити"))
+            {
+                if (btnSell == null) btnSell = b;
+            }
+            else if (btnName.Contains("next") || textLower.Contains("next") || textLower.Contains("маршрут") || textLower.Contains("route"))
+            {
+                if (btnNextRoute == null) btnNextRoute = b;
+            }
+        }
+
+        TextMeshProUGUI[] allTexts = GetComponentsInChildren<TextMeshProUGUI>(true);
+        foreach (var t in allTexts)
+        {
+            if (routeDropdown != null && t.transform.IsChildOf(routeDropdown.transform)) continue;
+
+            string n = t.gameObject.name.ToLower();
+            if (n.Contains("name") && nameText == null) nameText = t;
+            else if ((n.Contains("stat") || t.text.Contains("1M:") || t.text.Contains("ALL:")) && statsText == null) statsText = t;
+            else if (n.Contains("route") && !n.Contains("next") && routeText == null) routeText = t;
+        }
+
+        if (nameText == null && allTexts.Length > 0 && routeDropdown != null && !allTexts[0].transform.IsChildOf(routeDropdown.transform))
+        {
+            nameText = allTexts[0];
+        }
+
+        Image[] allImages = GetComponentsInChildren<Image>(true);
+        foreach (var img in allImages)
+        {
+            if (routeDropdown != null && img.transform.IsChildOf(routeDropdown.transform)) continue;
+
+            string n = img.gameObject.name.ToLower();
+            if (n.Contains("icon") && iconImage == null) iconImage = img;
+            else if ((n.Contains("fill") || n.Contains("cond")) && condFill == null) condFill = img;
+        }
+    }
+
+    public void UpdateData()
+    {
+        AutoResolveReferences();
+        if (vehicle == null) return;
+
+        if (nameText != null)
+        {
+            nameText.text = vehicle.vehicleData != null ?
+                $"{vehicle.vehicleData.vehicleName} <color=#AAAAAA><size=80%>{vehicle.customName}</size></color>" : "Транспорт";
+        }
+
+        if (iconImage != null)
+        {
+            if (vehicle.vehicleData != null && vehicle.vehicleData.icon != null)
+            {
+                iconImage.sprite = vehicle.vehicleData.icon;
+                iconImage.gameObject.SetActive(true);
+            }
+            else
+            {
+                iconImage.gameObject.SetActive(false);
+            }
+        }
+
+        UpdateStats();
+    }
+
+    public void UpdateStats()
+    {
+        try
+        {
+            if (vehicle == null) return;
+
+            if (condFill != null)
+            {
+                condFill.fillAmount = vehicle.condition / 100f;
+                condFill.color = vehicle.condition > 60f ? Color.green : (vehicle.condition > 30f ? Color.yellow : Color.red);
+            }
+
+            if (statsText != null)
+            {
+                string monthProfitText = $"<color=#A0E0A0>1M:</color> {vehicle.monthlyProfit:F0}";
+                string totalProfitText = $"<color=#A0E0A0>ALL:</color> {vehicle.allTimeProfit:F0}";
+                statsText.text = $"{monthProfitText}        {totalProfitText}";
+            }
+
+            if (btnRepair != null)
+            {
+                btnRepair.interactable = vehicle.condition <= 99f || vehicle.status == VehicleStatus.Broken;
+                var img = btnRepair.GetComponent<Image>();
+                if (img != null) img.color = btnRepair.interactable ? new Color(0.12f, 0.38f, 0.18f, 1f) : new Color(0.1f, 0.2f, 0.1f, 1f);
+            }
+
+            if (routeText != null)
+            {
+                if (vehicle.activeRoute != null)
+                {
+                    string r = vehicle.activeRoute.routeName;
+                    if (vehicle.activeRoute.stops != null && vehicle.activeRoute.stops.Count > 0)
+                    {
+                        var names = new List<string>();
+                        foreach (var s in vehicle.activeRoute.stops) if (s?.city != null) names.Add(s.city.cityName);
+                        r = string.Join(" - ", names);
+                    }
+                    routeText.text = r;
                 }
                 else
                 {
-                    RouteDefinition selectedRoute = allRoutes[index - 1];
-                    v.StartRoute(selectedRoute);
+                    routeText.text = "<color=#AAAAAA>Немає маршруту</color>";
                 }
-            });
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[VehicleRowUpdater.UpdateStats] Caught error: {ex.Message}");
         }
     }
 }

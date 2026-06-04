@@ -31,7 +31,6 @@ public class RoadNetwork : MonoBehaviour
 
     private void Start()
     {
-        // Намалювати лінії для доріг доданих вручну через Inspector
         foreach (var road in roads)
         {
             if (road.lineRenderer == null)

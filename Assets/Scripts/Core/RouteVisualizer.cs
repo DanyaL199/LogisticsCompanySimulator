@@ -9,7 +9,6 @@ public class RouteVisualizer : MonoBehaviour
 
     private void Start()
     {
-        // Невелика затримка щоб дати час всім маршрутам провантажитись
         Invoke(nameof(BuildHighlightLines), 0.1f);
     }
 
@@ -44,25 +43,21 @@ public class RouteVisualizer : MonoBehaviour
             Vector3 startPos = a.transform.position;
             Vector3 endPos = b.transform.position;
 
-            // ВАЖЛИВО: нормаль має бути консистентною незалежно від напрямку (A->B чи B->A)
+
             Vector3 consistentStart = (a.GetInstanceID() < b.GetInstanceID()) ? startPos : endPos;
             Vector3 consistentEnd = (a.GetInstanceID() < b.GetInstanceID()) ? endPos : startPos;
 
-            // Перпендикуляр до сегменту дороги
+
             Vector3 dir = (consistentEnd - consistentStart).normalized;
             Vector3 normal = new Vector3(-dir.y, dir.x, 0);
 
-            // Зміщення: 
-            // 0-й маршрут -> +0.12
-            // 1-й маршрут -> -0.12
-            // 2-й маршрут -> +0.24 і т.д.
             int sign = (overlapIndex % 2 == 0) ? 1 : -1;
             int step = (overlapIndex / 2) + 1;
             float offsetAmount = step * sign * 0.12f;
 
             Vector3 offset = normal * offsetAmount;
 
-            // Щоб лінії збігалися в містах, робимо 4 точки
+
             Vector3 dirAtoB = (endPos - startPos).normalized;
             float dist = Vector3.Distance(startPos, endPos);
             float taperDist = Mathf.Min(0.5f, dist * 0.25f);
@@ -75,7 +70,7 @@ public class RouteVisualizer : MonoBehaviour
 
             lr.startWidth = lr.endWidth = 0.08f;
             lr.sortingLayerName = "Roads";
-            lr.sortingOrder = 2 + overlapIndex; // НАД дорогою
+            lr.sortingOrder = 2 + overlapIndex; 
 
             lr.startColor = lr.endColor = route.routeColor;
 
@@ -106,7 +101,6 @@ public class RouteVisualizer : MonoBehaviour
             }
         }
 
-        // Сортуємо для консистентного результату між викликами
         traversing.Sort((t1, t2) => {
             int cmp = t1.route.GetInstanceID().CompareTo(t2.route.GetInstanceID());
             if (cmp == 0) return t1.sIdx.CompareTo(t2.sIdx);
