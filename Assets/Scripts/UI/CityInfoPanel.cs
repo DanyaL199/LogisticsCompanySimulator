@@ -9,10 +9,9 @@ public class CityInfoPanel : MonoBehaviour
 
     public GameObject panelObj;
     public TextMeshProUGUI cityNameText;
-    public TextMeshProUGUI demandsListText;
+
 
     public Button btnBuildWorkshop;
-    public Button btnHireMechanic;
     public Button btnCreateRoute;
     public Button btnBuildRoad;
     public Button btnClose;
@@ -38,7 +37,6 @@ public class CityInfoPanel : MonoBehaviour
             if (updateTimer >= 0.2f)
             {
                 updateTimer = 0f;
-                RefreshDemandsText();
                 UpdateDemandWorldLabels();
             }
         }
@@ -93,12 +91,6 @@ public class CityInfoPanel : MonoBehaviour
             }
         }
 
-        if (btnHireMechanic != null)
-        {
-            btnHireMechanic.interactable = SelectedCity.hasWorkshop;
-            btnHireMechanic.onClick.RemoveAllListeners();
-            btnHireMechanic.onClick.AddListener(() => { SelectedCity.HireMechanic(); RefreshUI(); });
-        }
 
         if (btnCreateRoute != null)
         {
@@ -120,22 +112,9 @@ public class CityInfoPanel : MonoBehaviour
             });
         }
 
-        RefreshDemandsText();
     }
 
-    private void RefreshDemandsText()
-    {
-        if (demandsListText == null || SelectedCity == null || SelectedCity.demands == null) return;
-        string txt = "Попит:\n";
-        foreach (var d in SelectedCity.demands)
-        {
-            if (d.destination != null && d.currentCargo > 0)
-            {
-                txt += $"- до {d.destination.cityName}: {Mathf.FloorToInt(d.currentCargo)}/{d.maxCargo} кг\n";
-            }
-        }
-        demandsListText.text = txt;
-    }
+
 
     private void UpdateDemandWorldLabels()
     {
@@ -156,7 +135,7 @@ public class CityInfoPanel : MonoBehaviour
 
                 GameObject labelObj = demandWorldLabels[i];
                 labelObj.SetActive(true);
-                labelObj.transform.position = d.destination.transform.position + new Vector3(0, 0.8f, 0);
+                labelObj.transform.position = d.destination.transform.position + new Vector3(0, 1f, 0);
 
                 var tmp = labelObj.GetComponent<TextMeshPro>();
                 if (tmp != null)

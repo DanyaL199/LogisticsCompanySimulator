@@ -14,9 +14,6 @@ public class RouteBuilderPanel : MonoBehaviour
     [Header("Контейнер рядків міст (з Vertical Layout Group)")]
     public Transform stopsListParent;
 
-    [Header("Префаб рядка міста у списку")]
-    public GameObject stopRowPrefab;
-
     [Header("Текст відстані")]
     public TextMeshProUGUI distanceText;
 
@@ -28,8 +25,6 @@ public class RouteBuilderPanel : MonoBehaviour
     public Button btnConfirm;
     public Button btnCancel;
 
-    [Header("Префаб маршруту (RouteDefinition + RouteVisualizer)")]
-    public GameObject routePrefab;
 
     [Header("Батько для нових маршрутів у Hierarchy")]
     public Transform routesParent;
@@ -148,52 +143,47 @@ public class RouteBuilderPanel : MonoBehaviour
 
             GameObject row;
 
-            if (stopRowPrefab != null && stopsListParent != null)
-            {
-                row = Instantiate(stopRowPrefab, stopsListParent);
-            }
-            else
-            {
-                row = new GameObject($"StopRow_{i}", typeof(RectTransform));
-                if (stopsListParent != null)
-                    row.transform.SetParent(stopsListParent, false);
-                var rt = row.GetComponent<RectTransform>();
-                rt.sizeDelta = new Vector2(0, 28);
+            
+            row = new GameObject($"StopRow_{i}", typeof(RectTransform));
+            if (stopsListParent != null)
+                row.transform.SetParent(stopsListParent, false);
+            var rt = row.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(0, 28);
 
-                var textObj = new GameObject("Label", typeof(RectTransform));
-                textObj.transform.SetParent(row.transform, false);
-                var textRT = textObj.GetComponent<RectTransform>();
-                textRT.anchorMin = Vector2.zero;
-                textRT.anchorMax = Vector2.one;
-                textRT.offsetMin = new Vector2(4, 0);
-                textRT.offsetMax = new Vector2(-36, 0);
-                var tmp = textObj.AddComponent<TextMeshProUGUI>();
-                tmp.fontSize = 13;
-                tmp.color = Color.white;
-                tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            var textObj = new GameObject("Label", typeof(RectTransform));
+            textObj.transform.SetParent(row.transform, false);
+            var textRT = textObj.GetComponent<RectTransform>();
+            textRT.anchorMin = Vector2.zero;
+            textRT.anchorMax = Vector2.one;
+            textRT.offsetMin = new Vector2(4, 0);
+            textRT.offsetMax = new Vector2(-36, 0);
+            var tmp = textObj.AddComponent<TextMeshProUGUI>();
+            tmp.fontSize = 13;
+            tmp.color = Color.white;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
 
-                var btnObj = new GameObject("BtnRemove", typeof(RectTransform));
-                btnObj.transform.SetParent(row.transform, false);
-                var btnRT = btnObj.GetComponent<RectTransform>();
-                btnRT.anchorMin = new Vector2(1, 0);
-                btnRT.anchorMax = new Vector2(1, 1);
-                btnRT.offsetMin = new Vector2(-32, 2);
-                btnRT.offsetMax = new Vector2(-2, -2);
-                var img = btnObj.AddComponent<Image>();
-                img.color = new Color(0.7f, 0.15f, 0.15f, 0.85f);
-                var btn = btnObj.AddComponent<Button>();
-                var xTextObj = new GameObject("X", typeof(RectTransform));
-                xTextObj.transform.SetParent(btnObj.transform, false);
-                var xRT = xTextObj.GetComponent<RectTransform>();
-                xRT.anchorMin = Vector2.zero; xRT.anchorMax = Vector2.one;
-                xRT.offsetMin = xRT.offsetMax = Vector2.zero;
-                var xTmp = xTextObj.AddComponent<TextMeshProUGUI>();
-                xTmp.text = "X";
-                xTmp.fontSize = 12;
-                xTmp.alignment = TextAlignmentOptions.Center;
-                xTmp.color = Color.white;
-                btn.onClick.AddListener(() => RemoveCityAt(captured));
-            }
+            var btnObj = new GameObject("BtnRemove", typeof(RectTransform));
+            btnObj.transform.SetParent(row.transform, false);
+            var btnRT = btnObj.GetComponent<RectTransform>();
+            btnRT.anchorMin = new Vector2(1, 0);
+            btnRT.anchorMax = new Vector2(1, 1);
+            btnRT.offsetMin = new Vector2(-32, 2);
+            btnRT.offsetMax = new Vector2(-2, -2);
+            var img = btnObj.AddComponent<Image>();
+            img.color = new Color(0.7f, 0.15f, 0.15f, 0.85f);
+            var btn = btnObj.AddComponent<Button>();
+            var xTextObj = new GameObject("X", typeof(RectTransform));
+            xTextObj.transform.SetParent(btnObj.transform, false);
+            var xRT = xTextObj.GetComponent<RectTransform>();
+            xRT.anchorMin = Vector2.zero; xRT.anchorMax = Vector2.one;
+            xRT.offsetMin = xRT.offsetMax = Vector2.zero;
+            var xTmp = xTextObj.AddComponent<TextMeshProUGUI>();
+            xTmp.text = "X";
+            xTmp.fontSize = 12;
+            xTmp.alignment = TextAlignmentOptions.Center;
+            xTmp.color = Color.white;
+            btn.onClick.AddListener(() => RemoveCityAt(captured));
+            
 
             var labelTMP = row.transform.Find("Label")?.GetComponent<TextMeshProUGUI>();
             if (labelTMP == null) labelTMP = row.GetComponentInChildren<TextMeshProUGUI>();
@@ -319,22 +309,18 @@ public class RouteBuilderPanel : MonoBehaviour
     private RouteDefinition CreateRouteDefinition()
     {
         GameObject obj;
-
-        if (routePrefab != null)
-            obj = Instantiate(routePrefab, routesParent != null ? routesParent : transform);
-        else
-        {
-            obj = new GameObject("Route_New");
-            if (routesParent != null) obj.transform.SetParent(routesParent);
-            obj.AddComponent<RouteDefinition>();
-            var vis = obj.AddComponent<RouteVisualizer>();
-            if (RoadNetwork.Instance != null) vis.linePrefab = RoadNetwork.Instance.roadLinePrefab;
-        }
+ 
+        obj = new GameObject("Route_New");
+        if (routesParent != null) obj.transform.SetParent(routesParent);
+        obj.AddComponent<RouteDefinition>();
+        var vis = obj.AddComponent<RouteVisualizer>();
+        if (RoadNetwork.Instance != null) vis.linePrefab = RoadNetwork.Instance.roadLinePrefab;
+        
 
         var route = obj.GetComponent<RouteDefinition>();
         if (route == null) { Destroy(obj); return null; }
 
-        // Додаємо рандомний колір для нового маршруту якщо він створюється (щоб відрізнялись)
+
         route.routeColor = new Color(Random.Range(0.2f, 1f), Random.Range(0.2f, 1f), Random.Range(0.2f, 1f));
 
         string first = currentStops[0].cityName;

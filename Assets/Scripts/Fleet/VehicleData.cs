@@ -16,7 +16,7 @@ public class VehicleData : ScriptableObject
     public Sprite icon;            // Іконка для UI та відображення на мапі
 
     [Header("Економіка")]
-    public float purchaseCost;     // Вартість придбання (у.о.)
+    public float purchaseCost;     // Вартість придбання (грн)
     public float fuelPer100km;     // Витрата пального (л/100км)
     public float maintenanceCost;  // Собівартість поточного обслуговування (або базова вартість ТО)
 }

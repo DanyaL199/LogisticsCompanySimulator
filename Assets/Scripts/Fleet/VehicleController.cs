@@ -43,7 +43,7 @@ public class VehicleController : MonoBehaviour
     private RouteDefinition pendingRoute;
 
     [Header("Налаштування")]
-    public float visualSpeed = 1f; // Зменшено з 3f для більш реалістичного часу в дорозі
+    public float visualSpeed = 1f; 
 
     private const float BASE_RATE = 10f;
     private const float KM_PER_UNIT = 60f;
@@ -58,7 +58,6 @@ public class VehicleController : MonoBehaviour
             GameTimeManager.Instance.OnMonthChanged += OnNewMonth;
         }
 
-        // Призначення правильної іконки
         if (vehicleData != null && vehicleData.icon != null)
         {
             SpriteRenderer sr = GetComponent<SpriteRenderer>();
@@ -66,7 +65,7 @@ public class VehicleController : MonoBehaviour
             {
                 sr.sprite = vehicleData.icon;
                 sr.sortingLayerName = "Roads";
-                sr.sortingOrder = 40; // Машинки над містами
+                sr.sortingOrder = 40; 
             }
         }
 

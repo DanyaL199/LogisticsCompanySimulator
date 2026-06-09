@@ -4,7 +4,7 @@ public class WageManager : MonoBehaviour
 {
     public static WageManager Instance { get; private set; }
 
-    [Header("Ставка зарплати (у.о./місяць)")]
+    [Header("Ставка зарплати (грн/місяць)")]
     public float currentWage = 500f;
 
     private const float INFLATION_MIN = 0.10f;
@@ -37,7 +37,7 @@ public class WageManager : MonoBehaviour
         float growth = Random.Range(INFLATION_MIN, INFLATION_MAX);
         currentWage *= (1f + growth);
         if (NotificationController.Instance != null)
-            NotificationController.Instance.Show($"Інфляція! Зарплати водіїв зросли до {currentWage:F0} у.о.", new Color(1f, 0.7f, 0f), 6f);
+            NotificationController.Instance.Show($"Інфляція! Зарплати водіїв зросли до {currentWage:F0} грн", new Color(1f, 0.7f, 0f), 6f);
     }
 
     public void SetWage(float newWage)

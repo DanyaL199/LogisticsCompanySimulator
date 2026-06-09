@@ -185,16 +185,16 @@ public class RoadBuilderPanel : MonoBehaviour
             }
             float diff = selectedRoad.buildCost - existing.roadData.buildCost;
             cost = diff > 0 ? (diff * costMultiplier) : 0;
-            SetWarning($"Покращення дороги. Вартість: {cost:F0} у.о.");
+            SetWarning($"Покращення дороги. Вартість: {cost:F0} грн");
         }
         else
         {
-            SetWarning($"Будівництво нової дороги. Вартість: {cost:F0} у.о.");
+            SetWarning($"Будівництво нової дороги. Вартість: {cost:F0} грн");
         }
 
         if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(cost))
         {
-            SetWarning($"Недостатньо коштів! Вартість: {cost:F0} у.о.");
+            SetWarning($"Недостатньо коштів! Вартість: {cost:F0} грн");
             btnConfirm.interactable = false;
             return;
         }
