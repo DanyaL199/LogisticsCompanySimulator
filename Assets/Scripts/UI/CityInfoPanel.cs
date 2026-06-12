@@ -74,7 +74,7 @@ public class CityInfoPanel : MonoBehaviour
                 btnBuildWorkshop.onClick.AddListener(() =>
                 {
                     CityNode cityToPass = SelectedCity;
-                    ClosePanel(); 
+                     
                     if (WorkshopPanel.Instance != null) WorkshopPanel.Instance.OpenPanel(cityToPass);
                 });
             }

@@ -5,7 +5,6 @@ using TMPro;
 
 public class ShopPanel : MonoBehaviour
 {
-    // === ДОДАНО: Статичний екземпляр для доступу з SaveManager ===
     public static ShopPanel Instance { get; private set; }
 
     [Header("UI References")]
@@ -38,15 +37,16 @@ public class ShopPanel : MonoBehaviour
         CloseShop(); // Ховаємо панель на початку
     }
 
+    private void Update()
+    {
+    }
+
     public void OpenShop()
     {
         panelObj.SetActive(true);
-        PopulateShop();  // Оновлюємо список щоразу при відкритті
-
-        if (RoutesPanel.Instance != null)
-            RoutesPanel.Instance.ClosePanel();
-        if (FleetPanelController.Instance != null)
-            FleetPanelController.Instance.ClosePanel();
+        PopulateShop();  
+        if (FinancePanel.Instance != null)
+            FinancePanel.Instance.ClosePanel(); 
     }
 
     public void CloseShop()
@@ -69,7 +69,7 @@ public class ShopPanel : MonoBehaviour
 
             TextMeshProUGUI[] allTexts = item.GetComponentsInChildren<TextMeshProUGUI>(true);
 
-            // 1. НАЗВА 
+            // 1. НАЗВА (розумний пошук)
             TextMeshProUGUI titleText = FindTMP(allTexts, "title", "name", "vehiclename");
             if (titleText == null && allTexts.Length > 0) titleText = allTexts[0];
             if (titleText != null) titleText.text = vData.vehicleName;
@@ -93,7 +93,7 @@ public class ShopPanel : MonoBehaviour
             Image[] allImages = item.GetComponentsInChildren<Image>(true);
             foreach (var img in allImages)
             {
-                if (img.gameObject == item) continue;
+                if (img.gameObject == item) continue; 
                 string n = img.name.ToLower();
                 if (n.Contains("icon") || n.Contains("img") || n.Contains("vehicle") || n.Contains("sprite"))
                 {
@@ -101,12 +101,13 @@ public class ShopPanel : MonoBehaviour
                     break;
                 }
             }
+
             if (iconImg == null && allImages.Length > 1) iconImg = allImages[1];
 
             if (iconImg != null && vData.icon != null)
             {
                 iconImg.sprite = vData.icon;
-                iconImg.color = Color.white;
+                iconImg.color = Color.white; 
             }
 
             // 5. КНОПКА "КУПИТИ"
@@ -114,7 +115,7 @@ public class ShopPanel : MonoBehaviour
             if (buyBtn != null)
             {
                 buyBtn.onClick.RemoveAllListeners();
-                var capturedData = vData;
+                var capturedData = vData; // Фіксуємо змінну 
                 buyBtn.onClick.AddListener(() => BuyVehicle(capturedData));
             }
         }
@@ -142,7 +143,8 @@ public class ShopPanel : MonoBehaviour
             FinanceManager.Instance.AddExpense(vData.purchaseCost);
 
             Vector3 hiddenPosition = new Vector3(10000f, 10000f, 0f);
-            GameObject newVeh = Instantiate(vehicleWorldPrefab, hiddenPosition, Quaternion.identity);
+            Transform vehiclesParent = GameObject.Find("Vehicles")?.transform;
+            GameObject newVeh = Instantiate(vehicleWorldPrefab, hiddenPosition, Quaternion.identity, vehiclesParent);
 
             VehicleController vc = newVeh.GetComponent<VehicleController>();
             if (vc != null)

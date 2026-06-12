@@ -43,7 +43,7 @@ public class VehicleController : MonoBehaviour
     private RouteDefinition pendingRoute;
 
     [Header("Налаштування")]
-    public float visualSpeed = 1f; 
+    public float visualSpeed = 1f;
 
     private const float BASE_RATE = 10f;
     private const float KM_PER_UNIT = 60f;
@@ -65,7 +65,7 @@ public class VehicleController : MonoBehaviour
             {
                 sr.sprite = vehicleData.icon;
                 sr.sortingLayerName = "Roads";
-                sr.sortingOrder = 40; 
+                sr.sortingOrder = 40;
             }
         }
 
@@ -79,7 +79,10 @@ public class VehicleController : MonoBehaviour
 
     private void RegisterSelf()
     {
-        FindFirstObjectByType<FleetPanelController>()?.RegisterVehicle(this);
+        if (FleetPanelController.Instance != null)
+        {
+            FleetPanelController.Instance.RegisterVehicle(this);
+        }
     }
 
     private void OnDestroy()
@@ -228,6 +231,7 @@ public class VehicleController : MonoBehaviour
         waitHoursLeft = 2;
     }
 
+    // Застосовує знос до транспортного засобу на основі пройденої відстані та типу дороги
     private void ApplyWear(RoadConnection road, float distKm)
     {
         float effectiveDurability = (vehicleData.durability > 0) ? vehicleData.durability : vehicleData.maintenanceCost;
@@ -238,8 +242,11 @@ public class VehicleController : MonoBehaviour
 
         if (condition <= 0f)
         {
-            status = VehicleStatus.Broken;
-            moveTween?.Kill();
+            if (status != VehicleStatus.ReturningToWorkshop)
+            {
+                status = VehicleStatus.Broken;
+                moveTween?.Kill();
+            }
         }
     }
 
@@ -286,6 +293,7 @@ public class VehicleController : MonoBehaviour
         MoveAlongPath(path, 1, workshop, false);
     }
 
+    // Рухає транспортний засіб по заданому шляху до пункту призначення
     private void MoveAlongPath(List<CityNode> path, int index, CityNode destination, bool isMovingToNewRoute)
     {
         if (index >= path.Count)
@@ -311,13 +319,19 @@ public class VehicleController : MonoBehaviour
         float dist = Vector3.Distance(transform.position, next.transform.position);
 
         float actualSpeed = Mathf.Min(vehicleData.maxSpeedKmh, road.roadData.speedLimitKmh);
+        if (condition <= 0f) actualSpeed = Mathf.Max(10f, actualSpeed * 0.5f);
+
         float duration = Mathf.Max(0.3f, dist / (visualSpeed * (actualSpeed / 150f)));
 
         moveTween = transform.DOMove(next.transform.position, duration).SetEase(Ease.Linear).OnComplete(() =>
         {
             currentCity = next;
             ApplyWear(road, dist * KM_PER_UNIT);
-            if (status == VehicleStatus.Broken) return;
+            if (status == VehicleStatus.Broken)
+            {
+                RequestRepair();
+                return;
+            }
 
             MoveAlongPath(path, index + 1, destination, isMovingToNewRoute);
         });
@@ -362,23 +376,11 @@ public class VehicleController : MonoBehaviour
         targetWorkshop = GetNearestWorkshopWithFreeSlot();
         if (targetWorkshop == null) return;
 
-        if (status == VehicleStatus.Broken)
-        {
-            float towCost = vehicleData.purchaseCost * 0.05f;
-            if (FinanceManager.Instance != null && !FinanceManager.Instance.CanAfford(towCost)) return;
-            FinanceManager.Instance?.AddExpense(towCost);
+        if (currentCity == null) return;
 
-            currentCity = targetWorkshop;
-            transform.position = targetWorkshop.transform.position;
-            TryStartRepairing();
-        }
-        else
-        {
-            if (currentCity == null) return; // Cannot drive to workshop if not deployed yet
-            pendingRoute = activeRoute;
-            StopRoute();
-            DriveToWorkshop(targetWorkshop);
-        }
+        if (activeRoute != null) pendingRoute = activeRoute;
+        StopRoute();
+        DriveToWorkshop(targetWorkshop);
     }
 
     private void RotateTowards(Vector3 target)
@@ -403,6 +405,14 @@ public class VehicleController : MonoBehaviour
                 if (currentLoad == 0) LoadCargo();
                 MoveToNext();
             }
+        }
+        else if (status == VehicleStatus.Broken)
+        {
+            RequestRepair();
+        }
+        else if (status == VehicleStatus.Idle && condition <= globalRepairThreshold)
+        {
+            RequestRepair();
         }
     }
 

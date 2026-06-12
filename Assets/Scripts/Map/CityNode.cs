@@ -27,7 +27,7 @@ public class CityNode : MonoBehaviour
     public int activityLevel = 1;
 
     [Header("Персонал")]
-    public int mechanics = 0;
+    public int mechanics = 1;
     public int maxMechanics = 10;
 
     [Header("Майстерня")]

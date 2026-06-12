@@ -52,13 +52,15 @@ public class RoadNetwork : MonoBehaviour
             (r.cityA == b && r.cityB == a));
     }
 
+
+    //Будує дорогу між двома містами. Якщо дорога вже існує, вона буде покращена, якщо новий тип кращий.
     public bool BuildRoad(CityNode a, CityNode b, RoadData roadData)
     {
         RoadConnection existing = GetRoad(a, b);
 
         if (existing != null)
         {
-            // Upgrade
+ 
             if (existing.roadData.roadType >= roadData.roadType) return false;
 
             existing.roadData = roadData;
@@ -129,7 +131,7 @@ public class RoadNetwork : MonoBehaviour
         }
         return result;
     }
-
+    // Простий BFS для пошуку шляху між двома містами
     public List<CityNode> FindPath(CityNode start, CityNode end)
     {
         if (start == end) return new List<CityNode> { start };

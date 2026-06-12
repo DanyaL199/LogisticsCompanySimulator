@@ -26,6 +26,7 @@ public class RouteDefinition : MonoBehaviour
 
     public bool IsValid() => stops != null && stops.Count >= 2;
 
+    // Повертає наступне місто в маршруті після поточного
     public CityNode GetNextCity(CityNode current)
     {
         for (int i = 0; i < stops.Count; i++)

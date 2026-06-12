@@ -3,84 +3,44 @@
   "WorkspaceRootPath": "E:\\Unity project\\LogisticsCompanySimulator\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|e:\\unity project\\logisticscompanysimulator\\assets\\scripts\\core\\savemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\core\\savemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\shoppanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\shoppanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\roads\\roaddata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\roads\\roaddata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\personnel\\wagemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\personnel\\wagemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\notificationcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\notificationcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\hudcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\hudcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\core\\routevisualizer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\core\\routevisualizer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\roads\\roadnetwork.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\roads\\roadnetwork.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\fleetpanelcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\fleetpanelcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\orders\\demandmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\orders\\demandmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\core\\routedefinition.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\core\\routedefinition.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\finance\\financemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\finance\\financemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\fleet\\vehicledata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\fleet\\vehicledata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\gametime\\gametimemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\gametime\\gametimemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\roadbuilderpanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\roadbuilderpanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\map\\citynode.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\map\\citynode.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\routespanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\routespanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\core\\routedefinition.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\core\\routedefinition.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\fleet\\vehiclecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\fleet\\vehiclecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\map\\mapclickhandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\map\\mapclickhandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\core\\routevisualizer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\core\\routevisualizer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\routebuilderpanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\routebuilderpanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\personnel\\wagemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\personnel\\wagemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\finance\\financemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\finance\\financemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\core\\savemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\core\\savemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\fleetpanelcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\fleetpanelcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\cityinfopanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -89,6 +49,50 @@
     {
       "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\workshoppanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\workshoppanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\map\\mapclickhandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\map\\mapclickhandler.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\shoppanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\shoppanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|e:\\unity project\\logisticscompanysimulator\\assets\\scripts\\ui\\financepanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\financepanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\hudcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\hudcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|e:\\unity project\\logisticscompanysimulator\\assets\\scripts\\map\\citynode.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\map\\citynode.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\fleet\\vehicledata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\fleet\\vehicledata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\routespanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\routespanel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\roads\\roaddata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\roads\\roaddata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\ui\\notificationcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\ui\\notificationcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\orders\\demandmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\orders\\demandmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|E:\\Unity project\\LogisticsCompanySimulator\\assets\\scripts\\gametime\\gametimemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E7B5954C-B245-210A-50F5-0DC400C35268}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\gametime\\gametimemanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -98,133 +102,153 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 9,
+          "SelectedChildIndex": 17,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 21,
+              "DocumentIndex": 14,
+              "Title": "FinancePanel.cs",
+              "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\FinancePanel.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\FinancePanel.cs",
+              "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\FinancePanel.cs",
+              "RelativeToolTip": "Assets\\Scripts\\UI\\FinancePanel.cs",
+              "ViewState": "AgIAABsAAAAAAAAAAAAgwGsAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-10T09:04:43.877Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
               "Title": "WorkshopPanel.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\WorkshopPanel.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\WorkshopPanel.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\WorkshopPanel.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\WorkshopPanel.cs",
-              "ViewState": "AgIAAAoAAAAAAAAAAAAAwA0AAAAbAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAABBAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-31T23:10:32.022Z"
+              "WhenOpened": "2026-05-31T23:10:32.022Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 20,
+              "DocumentIndex": 10,
               "Title": "CityInfoPanel.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\CityInfoPanel.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\CityInfoPanel.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\CityInfoPanel.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\CityInfoPanel.cs",
-              "ViewState": "AgIAAFsAAAAAAAAAAAApwGgAAAAhAAAAAAAAAA==",
+              "ViewState": "AgIAACcAAAAAAAAAAAAuwEwAAAAUAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-26T15:28:26.311Z"
+              "WhenOpened": "2026-05-26T15:28:26.311Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 19,
+              "DocumentIndex": 5,
               "Title": "RouteBuilderPanel.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\RouteBuilderPanel.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\RouteBuilderPanel.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\RouteBuilderPanel.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\RouteBuilderPanel.cs",
-              "ViewState": "AgIAAA0BAAAAAAAAAAAzwBIBAAApAAAAAAAAAA==",
+              "ViewState": "AgIAACIBAAAAAAAAAAAAwE8BAAA+AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-25T19:49:23.78Z"
+              "WhenOpened": "2026-05-25T19:49:23.78Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 12,
               "Title": "MapClickHandler.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Map\\MapClickHandler.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Map\\MapClickHandler.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Map\\MapClickHandler.cs",
               "RelativeToolTip": "Assets\\Scripts\\Map\\MapClickHandler.cs",
-              "ViewState": "AgIAAPIAAAAAAAAAAAAAAPkAAAAhAAAAAAAAAA==",
+              "ViewState": "AgIAAPIAAAAAAAAAAAAAAA4BAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-25T19:29:38.304Z"
+              "WhenOpened": "2026-05-25T19:29:38.304Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 13,
               "Title": "ShopPanel.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\ShopPanel.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\ShopPanel.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\ShopPanel.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\ShopPanel.cs",
-              "ViewState": "AgIAAH0AAAAAAAAAAAAcwKMAAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAA8AAAAAAAAAAAAqwC8AAAApAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-27T15:52:34.742Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 3,
               "Title": "VehicleController.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Fleet\\VehicleController.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Fleet\\VehicleController.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Fleet\\VehicleController.cs",
               "RelativeToolTip": "Assets\\Scripts\\Fleet\\VehicleController.cs",
-              "ViewState": "AgIAAEEBAAAAAAAAAADwv0cBAAA7AAAAAAAAAA==",
+              "ViewState": "AgIAAJUAAAAAAAAAAAAAwK8AAAAvAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T09:14:04.725Z"
+              "WhenOpened": "2026-05-23T09:14:04.725Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 18,
               "Title": "RoutesPanel.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\RoutesPanel.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\RoutesPanel.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\RoutesPanel.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\RoutesPanel.cs",
-              "ViewState": "AgIAACIAAAAAAAAAAAAswC0AAAAFAAAAAAAAAA==",
+              "ViewState": "AgIAACIAAAAAAAAAAAAswDUAAAANAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-26T14:42:13.555Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 16,
               "Title": "CityNode.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Map\\CityNode.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Map\\CityNode.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Map\\CityNode.cs",
               "RelativeToolTip": "Assets\\Scripts\\Map\\CityNode.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAhAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAuwBwAAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T09:14:10.232Z"
+              "WhenOpened": "2026-05-23T09:14:10.232Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 1,
               "Title": "RoadBuilderPanel.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\RoadBuilderPanel.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\RoadBuilderPanel.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\RoadBuilderPanel.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\RoadBuilderPanel.cs",
-              "ViewState": "AgIAAJ8AAAAAAAAAAAAkwLsAAABDAAAAAAAAAA==",
+              "ViewState": "AgIAAMoAAAAAAAAAAAAzwOUAAAA5AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-02T21:50:51.686Z"
+              "WhenOpened": "2026-06-02T21:50:51.686Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 8,
               "Title": "SaveManager.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Core\\SaveManager.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Core\\SaveManager.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Core\\SaveManager.cs",
               "RelativeToolTip": "Assets\\Scripts\\Core\\SaveManager.cs",
-              "ViewState": "AgIAAFwBAAAAAAAAAAAIwHIBAAA3AAAAAAAAAA==",
+              "ViewState": "AgIAAF8AAAAAAAAAAAAywHkAAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-05-24T08:17:41.557Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 22,
               "Title": "GameTimeManager.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\GameTime\\GameTimeManager.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\GameTime\\GameTimeManager.cs",
@@ -236,7 +260,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 17,
               "Title": "VehicleData.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Fleet\\VehicleData.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Fleet\\VehicleData.cs",
@@ -248,31 +272,33 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 7,
               "Title": "FinanceManager.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Finance\\FinanceManager.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Finance\\FinanceManager.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Finance\\FinanceManager.cs",
               "RelativeToolTip": "Assets\\Scripts\\Finance\\FinanceManager.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABUAAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T09:14:02.7Z"
+              "WhenOpened": "2026-05-23T09:14:02.7Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 2,
               "Title": "RouteDefinition.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Core\\RouteDefinition.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Core\\RouteDefinition.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Core\\RouteDefinition.cs",
               "RelativeToolTip": "Assets\\Scripts\\Core\\RouteDefinition.cs",
-              "ViewState": "AgIAAAUAAAAAAAAAAAAQwBEAAAAiAAAAAAAAAA==",
+              "ViewState": "AgIAAAQAAAAAAAAAAAAqwB0AAAAxAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T09:13:57.058Z"
+              "WhenOpened": "2026-05-23T09:13:57.058Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 21,
               "Title": "DemandManager.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Orders\\DemandManager.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Orders\\DemandManager.cs",
@@ -284,43 +310,46 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 9,
               "Title": "FleetPanelController.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\FleetPanelController.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\FleetPanelController.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\FleetPanelController.cs",
               "RelativeToolTip": "Assets\\Scripts\\UI\\FleetPanelController.cs",
-              "ViewState": "AgIAAN0AAAAAAAAAAAAUwOcAAAAsAAAAAAAAAA==",
+              "ViewState": "AgIAAHIBAAAAAAAAAAAcwJgBAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T14:54:46.424Z"
+              "WhenOpened": "2026-05-23T14:54:46.424Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 0,
               "Title": "RoadNetwork.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Roads\\RoadNetwork.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Roads\\RoadNetwork.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Roads\\RoadNetwork.cs",
               "RelativeToolTip": "Assets\\Scripts\\Roads\\RoadNetwork.cs",
-              "ViewState": "AgIAABUAAAAAAAAAAAAowCMAAAAqAAAAAAAAAA==",
+              "ViewState": "AgIAACUAAAAAAAAAAAAuwEgAAAArAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T09:14:17.962Z"
+              "WhenOpened": "2026-05-23T09:14:17.962Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 4,
               "Title": "RouteVisualizer.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Core\\RouteVisualizer.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Core\\RouteVisualizer.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Core\\RouteVisualizer.cs",
               "RelativeToolTip": "Assets\\Scripts\\Core\\RouteVisualizer.cs",
-              "ViewState": "AgIAAFYAAAAAAAAAAAAwwAoAAAAFAAAAAAAAAA==",
+              "ViewState": "AgIAAGoAAAAAAAAAAAAwwHoAAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T14:09:23.945Z"
+              "WhenOpened": "2026-05-23T14:09:23.945Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 15,
               "Title": "HUDController.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\HUDController.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\HUDController.cs",
@@ -328,11 +357,12 @@
               "RelativeToolTip": "Assets\\Scripts\\UI\\HUDController.cs",
               "ViewState": "AgIAACsAAAAAAAAAAAAcwEwAAAAsAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T14:52:20.746Z"
+              "WhenOpened": "2026-05-23T14:52:20.746Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 20,
               "Title": "NotificationController.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\UI\\NotificationController.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\UI\\NotificationController.cs",
@@ -344,19 +374,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 6,
               "Title": "WageManager.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Personnel\\WageManager.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Personnel\\WageManager.cs",
               "ToolTip": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Personnel\\WageManager.cs",
               "RelativeToolTip": "Assets\\Scripts\\Personnel\\WageManager.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAhAAAAAAAAAA==",
+              "ViewState": "AgIAAAwAAAAAAAAAAAAmwBoAAAAcAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-23T09:14:14.008Z"
+              "WhenOpened": "2026-05-23T09:14:14.008Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 19,
               "Title": "RoadData.cs",
               "DocumentMoniker": "E:\\Unity project\\LogisticsCompanySimulator\\Assets\\Scripts\\Roads\\RoadData.cs",
               "RelativeDocumentMoniker": "Assets\\Scripts\\Roads\\RoadData.cs",

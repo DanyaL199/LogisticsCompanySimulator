@@ -31,6 +31,9 @@ public class FleetPanelController : MonoBehaviour
         if (fleetPanel != null) fleetPanel.SetActive(false);
         if (btnToggleFleet != null) btnToggleFleet.onClick.AddListener(TogglePanel);
         if (btnCloseFleet != null) btnCloseFleet.onClick.AddListener(ClosePanel);
+
+        var existing = FindObjectsByType<VehicleController>(FindObjectsSortMode.None);
+        foreach (var v in existing) RegisterVehicle(v);
     }
 
     public void RegisterVehicle(VehicleController vc)
@@ -181,7 +184,7 @@ public class FleetPanelController : MonoBehaviour
         }
 
         int nextIndex = currentIndex + 1;
-        if (nextIndex >= allRoutes.Length) 
+        if (nextIndex >= allRoutes.Length)
         {
             v.StopRoute();
         }

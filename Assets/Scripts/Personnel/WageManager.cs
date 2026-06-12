@@ -32,6 +32,7 @@ public class WageManager : MonoBehaviour
         }
     }
 
+    // Щорічне підвищення зарплати водіїв через інфляцію
     private void OnNewYear(GameDate date)
     {
         float growth = Random.Range(INFLATION_MIN, INFLATION_MAX);

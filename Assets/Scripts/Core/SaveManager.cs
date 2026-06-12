@@ -105,6 +105,7 @@ public class SaveManager : MonoBehaviour
             GameTimeManager.Instance.OnDayChanged -= AutoSave;
     }
 
+    //Автоматичне збереження стану гри
     private void AutoSave(GameDate date)
     {
         if (date.day % 5 == 0) Save();
@@ -222,7 +223,7 @@ public class SaveManager : MonoBehaviour
                 posY = v.transform.position.y
             });
         }
-
+        //Серіалізація даних у формат JSON
         string json = JsonConvert.SerializeObject(data, Formatting.Indented);
         File.WriteAllText(SavePath, json);
         Debug.Log($"Гра збережена: {SavePath}");
@@ -361,7 +362,10 @@ public class SaveManager : MonoBehaviour
                 if (vData != null && ShopPanel.Instance.vehicleWorldPrefab != null)
                 {
                     Vector3 pos = new Vector3(vSave.posX, vSave.posY, 0f);
-                    GameObject newVeh = Instantiate(ShopPanel.Instance.vehicleWorldPrefab, pos, Quaternion.identity);
+
+                    Transform vehiclesParent = GameObject.Find("Vehicles")?.transform;
+                    GameObject newVeh = Instantiate(ShopPanel.Instance.vehicleWorldPrefab, pos, Quaternion.identity, vehiclesParent);
+
                     var vc = newVeh.GetComponent<VehicleController>();
                     if (vc != null)
                     {
@@ -383,6 +387,7 @@ public class SaveManager : MonoBehaviour
                             vc.loadDestination = cLoad;
                         if (!string.IsNullOrEmpty(vSave.activeRouteName) && rebuiltRoutes.TryGetValue(vSave.activeRouteName, out RouteDefinition activeR))
                             vc.activeRoute = activeR;
+
                     }
                 }
             }
