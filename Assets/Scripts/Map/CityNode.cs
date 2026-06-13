@@ -88,8 +88,8 @@ public class CityNode : MonoBehaviour
             d.annualGrowth = Random.Range(0.01f, 0.05f);
 
 
-            d.currentCargo = Random.Range(80, 401);
-            d.currentPassengers = Random.Range(80, 401);
+            d.currentCargo = Random.Range(40, 201);
+            d.currentPassengers = Random.Range(40, 201);
 
 
             d.maxCargo = d.currentCargo * 5;
